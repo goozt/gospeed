@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "9000:9000"
+      - "9000:9000/udp"
     restart: unless-stopped
     # Optional TLS:
     # volumes:

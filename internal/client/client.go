@@ -117,8 +117,14 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) connect(ctx context.Context) error {
+	// Append default port if missing.
+	addr := c.cfg.Server
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		addr = net.JoinHostPort(addr, "9000")
+	}
+
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", c.cfg.Server)
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
