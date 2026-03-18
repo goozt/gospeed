@@ -1,0 +1,49 @@
+version: "3"
+
+vars:
+  VERSION: '{{default "dev" .VERSION}}'
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo "unknown"
+  DATE:
+    sh: date -u +%Y-%m-%dT%H:%M:%SZ
+  LDFLAGS: >-
+    -s -w
+    -X github.com/goozt/gospeed/internal/version.Version={{.VERSION}}
+    -X github.com/goozt/gospeed/internal/version.Commit={{.COMMIT}}
+    -X github.com/goozt/gospeed/internal/version.Date={{.DATE}}
+
+tasks:
+  build:
+    desc: Build both binaries
+    cmds:
+      - go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed ./cmd/gospeed
+      - go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed-server ./cmd/gospeed-server
+
+  test:
+    desc: Run tests with race detector
+    cmds:
+      - go test -race -timeout 120s ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Lint (runs vet)
+    deps: [vet]
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf bin/ dist/
+
+  docker:
+    desc: Build Docker image
+    cmds:
+      - docker build -t gospeed-server .
+
+  release-snapshot:
+    desc: Test GoReleaser locally
+    cmds:
+      - goreleaser release --snapshot --clean

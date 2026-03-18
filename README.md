@@ -172,10 +172,12 @@ Test flags:
 ## Building from source
 
 ```sh
-make build       # Build both binaries
-make test        # Run tests
-make docker      # Build Docker image
-make release-snapshot  # Test GoReleaser locally
+go install github.com/go-task/task/v3/cmd/task@latest
+
+task build              # Build both binaries
+task test               # Run tests
+task docker             # Build Docker image
+task release-snapshot   # Test GoReleaser locally
 ```
 
 ## License
