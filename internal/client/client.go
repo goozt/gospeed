@@ -49,6 +49,15 @@ func (c *Client) Run(ctx context.Context) error {
 		return results.PrintHistory(os.Stdout, 20)
 	}
 
+	// Set connection deadline from context so blocked I/O unblocks on cancel.
+	go func() {
+		<-ctx.Done()
+		if c.conn != nil {
+			// Force-close unblocks any blocked Read/Write.
+			c.conn.SetDeadline(time.Now())
+		}
+	}()
+
 	if err := c.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -65,8 +74,16 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	for _, t := range testList {
+		if ctx.Err() != nil {
+			fmt.Fprintf(os.Stderr, "\naborted.\n")
+			break
+		}
 		result, err := c.runTest(ctx, t)
 		if err != nil {
+			if ctx.Err() != nil {
+				fmt.Fprintf(os.Stderr, "\naborted.\n")
+				break
+			}
 			fmt.Fprintf(os.Stderr, "  %s test failed: %v\n", t, err)
 			continue
 		}
@@ -75,23 +92,25 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 	}
 
-	report.OverallGrade = results.ComputeOverallGrade(report.Results)
+	if len(report.Results) > 0 {
+		report.OverallGrade = results.ComputeOverallGrade(report.Results)
 
-	// Output results.
-	switch {
-	case c.cfg.JSON:
-		results.FormatJSON(os.Stdout, report)
-	case c.cfg.CSV:
-		results.FormatCSV(os.Stdout, report)
-	default:
-		c.progress.Clear()
-		fmt.Println()
-		results.FormatTable(os.Stdout, report)
-	}
+		// Output results.
+		switch {
+		case c.cfg.JSON:
+			results.FormatJSON(os.Stdout, report)
+		case c.cfg.CSV:
+			results.FormatCSV(os.Stdout, report)
+		default:
+			c.progress.Clear()
+			fmt.Println()
+			results.FormatTable(os.Stdout, report)
+		}
 
-	// Save to history.
-	if err := results.SaveHistory(report); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to save history: %v\n", err)
+		// Save to history.
+		if err := results.SaveHistory(report); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to save history: %v\n", err)
+		}
 	}
 
 	return nil
@@ -145,12 +164,24 @@ func (c *Client) close() {
 	}
 }
 
-func (c *Client) runTest(ctx context.Context, t protocol.TestType) (*results.TestResult, error) {
+func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *results.TestResult, err error) {
+	// Panic recovery — a crashing test shouldn't take down the process.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+			result = nil
+		}
+	}()
+
+	// Per-test timeout: 3x configured duration (min 30s) to auto-abort stuck tests.
+	timeout := max(time.Duration(c.cfg.Duration*3) * time.Second, 30 * time.Second)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	c.progress.TestStart(string(t))
 
 	var metrics any
 	var grade results.Grade
-	var err error
 
 	switch t {
 	case protocol.TestLatency:

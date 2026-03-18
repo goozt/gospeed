@@ -103,7 +103,13 @@ func (s *Session) Run() error {
 	}
 }
 
-func (s *Session) handleTestRequest(env *protocol.Envelope) error {
+func (s *Session) handleTestRequest(env *protocol.Envelope) (retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = fmt.Errorf("test panic: %v", r)
+		}
+	}()
+
 	var req protocol.TestRequest
 	if err := protocol.DecodeBody(env, &req); err != nil {
 		return fmt.Errorf("decode test request: %w", err)

@@ -19,10 +19,10 @@ type TestResult struct {
 
 // Report holds the complete results of a speed test run.
 type Report struct {
-	Timestamp  time.Time    `json:"timestamp"`
-	Server     string       `json:"server"`
-	Results    []TestResult `json:"results"`
-	OverallGrade Grade      `json:"overall_grade"`
+	Timestamp    time.Time    `json:"timestamp"`
+	Server       string       `json:"server"`
+	Results      []TestResult `json:"results"`
+	OverallGrade Grade        `json:"overall_grade"`
 }
 
 // FormatTable writes a human-readable table to w.
@@ -36,7 +36,7 @@ func FormatTable(w io.Writer, report *Report) {
 		fmt.Fprintln(w)
 	}
 
-	fmt.Fprintf(w, "%s Overall: %s\n", Header(""), ColorGrade(report.OverallGrade))
+	fmt.Fprintf(w, "%s\n", Header(fmt.Sprintf("Overall: %s", ColorGrade(report.OverallGrade))))
 }
 
 func formatTestResult(w io.Writer, r TestResult) {
@@ -97,8 +97,12 @@ func formatTestResult(w io.Writer, r TestResult) {
 		fmt.Fprintf(w, "  %s %s\n", Bold("Bufferbloat"), ColorGrade(r.Grade))
 		fmt.Fprintf(w, "    Unloaded latency: %.2f ms  Loaded latency: %.2f ms\n",
 			m.UnloadedLatency.Avg, m.LoadedLatency.Avg)
-		fmt.Fprintf(w, "    Latency increase: %.2f ms  RPM: %.0f\n",
-			m.LatencyIncrease, m.RPM)
+		rpmStr := fmt.Sprintf("%.0f", m.RPM)
+		if m.RPM >= 999999 {
+			rpmStr = "∞ (unmeasurable)"
+		}
+		fmt.Fprintf(w, "    Latency increase: %.2f ms  RPM: %s\n",
+			m.LatencyIncrease, rpmStr)
 		fmt.Fprintf(w, "    Throughput during test: %s\n", formatBPS(m.Throughput.BitsPerSec))
 
 	case "dns":

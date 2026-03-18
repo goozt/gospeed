@@ -41,7 +41,7 @@ func (p *Progress) Clear() {
 	if !p.enabled {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", 70))
+	fmt.Fprintf(os.Stderr, "\r\033[2K")
 }
 
 // TestStart announces a test is beginning.
@@ -49,7 +49,7 @@ func (p *Progress) TestStart(name string) {
 	if !p.enabled {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "  Running %s...\n", name)
+	fmt.Fprintf(os.Stderr, "\r\033[2K  Running %s...", name)
 }
 
 // FormatBPS formats bits per second for display.

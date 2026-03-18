@@ -224,6 +224,9 @@ done:
 	rpm := 0.0
 	if loadedLatency.Avg > 0 {
 		rpm = 60000 / loadedLatency.Avg
+	} else {
+		// Latency too small to measure (e.g. localhost) — no bloat.
+		rpm = 999999
 	}
 
 	return &BufferbloatMetrics{

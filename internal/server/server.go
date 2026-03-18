@@ -88,6 +88,11 @@ func (s *Server) ListenAndServeWithListener(ctx context.Context, ln net.Listener
 
 func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("panic handling connection from %s: %v", conn.RemoteAddr(), r)
+		}
+	}()
 
 	sess, err := newSession(ctx, conn)
 	if err != nil {

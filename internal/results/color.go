@@ -8,15 +8,15 @@ import (
 
 // ANSI color codes.
 const (
-	reset     = "\033[0m"
-	bold      = "\033[1m"
-	green     = "\033[32m"
-	cyan      = "\033[36m"
-	yellow    = "\033[33m"
-	red       = "\033[31m"
-	boldRed   = "\033[1;31m"
-	white     = "\033[37m"
-	grey      = "\033[90m"
+	reset   = "\033[0m"
+	bold    = "\033[1m"
+	green   = "\033[32m"
+	cyan    = "\033[36m"
+	yellow  = "\033[33m"
+	red     = "\033[31m"
+	boldRed = "\033[1;31m"
+	white   = "\033[37m"
+	grey    = "\033[90m"
 )
 
 var colorEnabled = detectColor()
@@ -86,7 +86,7 @@ func Header(text string) string {
 	if !colorEnabled {
 		return fmt.Sprintf("=== %s ===", text)
 	}
-	return bold + white + "=== " + text + " ===" + reset
+	return bold + white + "=== " + text + bold + " ===" + reset
 }
 
 // Dim formats text in grey.
