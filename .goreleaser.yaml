@@ -67,7 +67,7 @@ builds:
 
 archives:
   - id: gospeed
-    builds:
+    ids:
       - gospeed
     name_template: "gospeed_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats:
@@ -78,7 +78,7 @@ archives:
           - zip
 
   - id: gospeed-server
-    builds:
+    ids:
       - gospeed-server
     name_template: "gospeed-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats:
