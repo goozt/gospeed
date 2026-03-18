@@ -25,6 +25,8 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: "386"
+      - goos: windows
+        goarch: arm
     ldflags:
       - -s -w
       - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
@@ -55,6 +57,8 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: "386"
+      - goos: windows
+        goarch: arm
     ldflags:
       - -s -w
       - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
@@ -66,17 +70,23 @@ archives:
     builds:
       - gospeed
     name_template: "gospeed_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
   - id: gospeed-server
     builds:
       - gospeed-server
     name_template: "gospeed-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
 checksum:
   name_template: "checksums.txt"
