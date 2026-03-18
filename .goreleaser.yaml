@@ -1,0 +1,90 @@
+version: 2
+
+builds:
+  - id: gospeed
+    main: ./cmd/gospeed
+    binary: gospeed
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - "386"
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: "386"
+    ldflags:
+      - -s -w
+      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
+      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
+
+  - id: gospeed-server
+    main: ./cmd/gospeed-server
+    binary: gospeed-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - "386"
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: "386"
+    ldflags:
+      - -s -w
+      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
+      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
+
+archives:
+  - id: gospeed
+    builds:
+      - gospeed
+    name_template: "gospeed_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+  - id: gospeed-server
+    builds:
+      - gospeed-server
+    name_template: "gospeed-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"

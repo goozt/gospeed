@@ -1,0 +1,10 @@
+services:
+  gospeed-server:
+    build: .
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    # Optional TLS:
+    # volumes:
+    #   - ./certs:/certs:ro
+    # command: ["-tls-cert", "/certs/cert.pem", "-tls-key", "/certs/key.pem"]
