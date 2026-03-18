@@ -79,10 +79,8 @@ func RunLatencyClient(ctx context.Context, conn net.Conn, count int) (*LatencyMe
 	// Ping-pong loop.
 	rtts := make([]float64, 0, count)
 	for i := 0; i < count; i++ {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			break
-		default:
 		}
 
 		start := time.Now()

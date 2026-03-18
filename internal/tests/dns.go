@@ -16,10 +16,8 @@ func RunDNSClient(ctx context.Context, host string, count int) (*DNSMetrics, err
 	samples := make([]float64, 0, count)
 
 	for i := 0; i < count; i++ {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			break
-		default:
 		}
 
 		start := time.Now()

@@ -14,10 +14,8 @@ func RunConnectClient(ctx context.Context, serverAddr string, count int) (*Conne
 
 	samples := make([]float64, 0, count)
 	for i := 0; i < count; i++ {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			break
-		default:
 		}
 
 		start := time.Now()
