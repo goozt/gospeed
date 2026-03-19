@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
@@ -30,6 +31,7 @@ func main() {
 	domain := flag.String("domain", "", "domain name for ACME certificate")
 	email := flag.String("email", "", "email address for ACME account")
 	certDir := flag.String("cert-dir", "", "directory to cache ACME certificates")
+	healthPort := flag.Int("health", 0, "start HTTP health check server on given port")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.StringVar(addr, "a", "", "listen address (shorthand)")
 	flag.StringVar(host, "h", "", "specific host address (shorthand)")
@@ -51,6 +53,21 @@ func main() {
 	}
 
 	srv := server.New(*addr)
+
+	if *healthPort > 0 {
+		go func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"status":"ok"}`))
+			})
+			hAddr := fmt.Sprintf(":%d", *healthPort)
+			log.Printf("health check listening on %s", hAddr)
+			if err := http.ListenAndServe(hAddr, mux); err != nil {
+				log.Printf("health server error: %v", err)
+			}
+		}()
+	}
 
 	switch {
 	case *tlsACME:

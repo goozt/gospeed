@@ -91,6 +91,7 @@ gospeed-server --tls-acme --domain speed.example.com --email admin@example.com
     --domain string     Domain name for ACME certificate (required with --tls-acme)
     --email string      Email address for ACME account (required with --tls-acme)
     --cert-dir string   Directory to cache ACME certificates
+    --health int        Start HTTP health check server on given port
 ```
 
 ### Client
