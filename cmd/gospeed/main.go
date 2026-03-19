@@ -15,13 +15,18 @@ import (
 )
 
 func main() {
-	server := flag.String("s", "", "server address (host:port)")
+	server := flag.String("server", "", "server address (host:port)")
 	jsonOut := flag.Bool("json", false, "output results as JSON")
 	csvOut := flag.Bool("csv", false, "output results as CSV")
 	history := flag.Bool("history", false, "show test history")
 	streams := flag.Int("streams", 4, "number of parallel streams for throughput tests")
 	duration := flag.Int("duration", 10, "test duration in seconds")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.StringVar(server, "s", "", "server address (host:port)")
+	flag.BoolVar(history, "h", false, "show test history")
+	flag.IntVar(streams, "t", 4, "number of parallel streams for throughput tests")
+	flag.IntVar(duration, "d", 10, "test duration in seconds")
+	flag.BoolVar(showVersion, "v", false, "print version and exit")
 
 	// Individual test flags.
 	doLatency := flag.Bool("latency", false, "run latency test")
@@ -34,6 +39,7 @@ func main() {
 	doConnect := flag.Bool("connect", false, "run TCP connect time test")
 	doBidir := flag.Bool("bidir", false, "run bidirectional throughput test")
 	doAll := flag.Bool("all", false, "run all tests")
+	flag.BoolVar(doAll, "a", false, "run all tests")
 
 	// TLS flags.
 	useTLS := flag.Bool("tls", false, "use TLS connection")

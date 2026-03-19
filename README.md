@@ -94,27 +94,27 @@ gospeed --history
 ### Options
 
 ```
--s string        Server address (host:port)
--streams int     Number of parallel streams (default 4)
--duration int    Test duration in seconds (default 10)
---json           Output as JSON
---csv            Output as CSV
---history        Show previous results with trends
---tls            Use TLS connection
---tls-skip-verify  Skip TLS certificate verification
--version         Print version and exit
+-s, --server string   Server address (host:port)
+-t, --streams int     Number of parallel streams (default 4)
+-d  --duration int    Test duration in seconds (default 10)
+-h, --history         Show previous results with trends
+-v, --version         Print version and exit
+    --json            Output as JSON
+    --csv             Output as CSV
+    --tls             Use TLS connection
+    --tls-skip-verify Skip TLS certificate verification
 
 Test flags:
--latency         Unloaded latency (RTT)
--mtu             Path MTU discovery
--tcp             TCP throughput
--udp             UDP throughput + packet loss
--jitter          Jitter measurement
--bufferbloat     Bufferbloat detection (RPM)
--dns             DNS resolution latency
--connect         TCP connection setup time
--bidir           Bidirectional throughput
--all             Run all tests
+    --latency         Unloaded latency (RTT)
+    --mtu             Path MTU discovery
+    --tcp             TCP throughput
+    --udp             UDP throughput + packet loss
+    --jitter          Jitter measurement
+    --bufferbloat     Bufferbloat detection (RPM)
+    --dns             DNS resolution latency
+    --connect         TCP connection setup time
+    --bidir           Bidirectional throughput
+-a, --all             Run all tests
 ```
 
 ## Test descriptions

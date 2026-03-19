@@ -18,10 +18,16 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", ":9000", "listen address")
+	addr := flag.String("addr", "", "listen address")
+	host := flag.String("host", "", "specific host address")
+	port := flag.Int("port", 9000, "listening port")
 	tlsCert := flag.String("tls-cert", "", "TLS certificate file")
 	tlsKey := flag.String("tls-key", "", "TLS key file")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.StringVar(addr, "a", "", "print version and exit (shorthand)")
+	flag.StringVar(host, "h", "", "print version and exit (shorthand)")
+	flag.IntVar(port, "p", 9000, "print version and exit (shorthand)")
+	flag.BoolVar(showVersion, "v", false, "print version and exit (shorthand)")
 	flag.Parse()
 
 	if *showVersion {
@@ -35,6 +41,10 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	if *addr == "" {
+		*addr = fmt.Sprintf("%s:%d", *host, *port)
+	}
 
 	srv := server.New(*addr)
 	if err := srv.ListenAndServe(ctx); err != nil {
