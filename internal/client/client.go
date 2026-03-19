@@ -35,6 +35,7 @@ type Client struct {
 	sessID      string
 	serverTests []protocol.TestType
 	progress    *Progress
+	completed   []results.TestResult // results from completed tests
 }
 
 // New creates a new client with the given configuration.
@@ -118,13 +119,17 @@ func (c *Client) filterTests() []protocol.TestType {
 	}
 	filtered := testList[:0:0]
 	for _, t := range testList {
-		if supported[t] {
+		if supported[t] || isClientOnly(t) {
 			filtered = append(filtered, t)
 		} else {
 			fmt.Fprintf(os.Stderr, "  skipping %s: not supported by server\n", t)
 		}
 	}
 	return filtered
+}
+
+func isClientOnly(t protocol.TestType) bool {
+	return t == protocol.TestDNS || t == protocol.TestConnect || t == protocol.TestBidir
 }
 
 func (c *Client) executeTests(ctx context.Context, testList []protocol.TestType) *results.Report {
@@ -149,6 +154,7 @@ func (c *Client) executeTests(ctx context.Context, testList []protocol.TestType)
 		}
 		if result != nil {
 			report.Results = append(report.Results, *result)
+			c.completed = append(c.completed, *result)
 		}
 	}
 	return report
@@ -175,6 +181,7 @@ func (c *Client) connect(ctx context.Context) error {
 	addr := c.cfg.Server
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		addr = net.JoinHostPort(addr, "9000")
+		c.cfg.Server = addr // store normalized address so tests can parse host:port
 	}
 
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
@@ -234,28 +241,49 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 	}()
 
 	timeout := max(time.Duration(c.cfg.Duration*3)*time.Second, 30*time.Second)
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	testCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
-	// Enforce the timeout at the connection level so blocking reads/writes
-	// are interrupted when the per-test context expires (not on normal cancel).
-	deadline := time.Now().Add(timeout)
-	c.conn.SetDeadline(deadline)
-	defer c.conn.SetDeadline(time.Time{}) // clear deadline for next test
 
 	c.progress.TestStart(string(t))
 
-	metrics, grade, err := c.dispatchTest(ctx, t)
-	if err != nil {
-		return nil, err
+	// Run the test in a goroutine so we can enforce the timeout even when
+	// a blocking read/write on the TCP connection ignores the context.
+	type testResult struct {
+		metrics any
+		grade   results.Grade
+		err     error
 	}
+	ch := make(chan testResult, 1)
+	go func() {
+		m, g, e := c.dispatchTest(testCtx, t)
+		ch <- testResult{m, g, e}
+	}()
 
-	c.progress.Clear()
-	return &results.TestResult{
-		Test:    string(t),
-		Metrics: metrics,
-		Grade:   grade,
-	}, nil
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			return nil, res.err
+		}
+		c.progress.Clear()
+		return &results.TestResult{
+			Test:    string(t),
+			Metrics: res.metrics,
+			Grade:   res.grade,
+		}, nil
+
+	case <-testCtx.Done():
+		// Test timed out — a goroutine is likely stuck on a blocking TCP read.
+		// Force-close the connection to unblock it, then reconnect.
+		c.conn.Close()
+		<-ch // wait for goroutine to exit
+		if ctx.Err() == nil {
+			// Parent context is still valid; reconnect for subsequent tests.
+			if reconnErr := c.connect(ctx); reconnErr != nil {
+				return nil, fmt.Errorf("%s timed out, reconnect failed: %w", t, reconnErr)
+			}
+		}
+		return nil, fmt.Errorf("%s timed out", t)
+	}
 }
 
 func (c *Client) dispatchTest(ctx context.Context, t protocol.TestType) (any, results.Grade, error) {
@@ -308,8 +336,59 @@ func (c *Client) runTCPTest(ctx context.Context) (any, results.Grade, error) {
 	return m, results.GradeThroughput(m.BitsPerSec), nil
 }
 
+// estimateUDPBandwidth derives a UDP send rate from prior test results.
+// Uses TCP throughput if available, otherwise falls back to 100 Mbps.
+func (c *Client) estimateUDPBandwidth() int64 {
+	const fallback = 100_000_000 // 100 Mbps
+
+	var maxBps float64
+	for _, r := range c.completed {
+		switch m := r.Metrics.(type) {
+		case *tests.TCPMetrics:
+			if m.BitsPerSec > maxBps {
+				maxBps = m.BitsPerSec
+			}
+		case tests.TCPMetrics:
+			if m.BitsPerSec > maxBps {
+				maxBps = m.BitsPerSec
+			}
+		case *tests.BidirMetrics:
+			if m.Upload.BitsPerSec > maxBps {
+				maxBps = m.Upload.BitsPerSec
+			}
+			if m.Download.BitsPerSec > maxBps {
+				maxBps = m.Download.BitsPerSec
+			}
+		case tests.BidirMetrics:
+			if m.Upload.BitsPerSec > maxBps {
+				maxBps = m.Upload.BitsPerSec
+			}
+			if m.Download.BitsPerSec > maxBps {
+				maxBps = m.Download.BitsPerSec
+			}
+		case *tests.BufferbloatMetrics:
+			if m.Throughput.BitsPerSec > maxBps {
+				maxBps = m.Throughput.BitsPerSec
+			}
+		case tests.BufferbloatMetrics:
+			if m.Throughput.BitsPerSec > maxBps {
+				maxBps = m.Throughput.BitsPerSec
+			}
+		}
+	}
+
+	if maxBps > 0 {
+		// Ceil to nearest 100 Mbps (e.g., 189 Mbps → 200 Mbps).
+		mbps := int64(maxBps / 1_000_000)
+		rounded := ((mbps + 99) / 100) * 100
+		return rounded * 1_000_000
+	}
+	return fallback
+}
+
 func (c *Client) runUDPTest(ctx context.Context) (any, results.Grade, error) {
-	m, e := tests.RunUDPClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, 1400, 0, func(bps float64) {
+	bandwidth := c.estimateUDPBandwidth()
+	m, e := tests.RunUDPClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, 1400, bandwidth, func(bps float64) {
 		c.progress.Status("UDP: %s", FormatBPS(bps))
 	})
 	if e != nil {

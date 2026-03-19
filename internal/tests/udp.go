@@ -154,29 +154,72 @@ func udpSendLoop(ctx context.Context, udpConn *net.UDPConn, duration, packetSize
 	deadline := time.Now().Add(dur)
 	start := time.Now()
 
-	var delay time.Duration
-	if bandwidth > 0 {
-		packetsPerSec := float64(bandwidth) / 8 / float64(packetSize)
-		delay = time.Duration(float64(time.Second) / packetsPerSec)
-	}
-
 	buf := make([]byte, packetSize)
 	var seq uint64
 	var sent int64
+
+	if bandwidth <= 0 {
+		// Unlimited: send as fast as possible.
+		for time.Now().Before(deadline) {
+			select {
+			case <-ctx.Done():
+				return sent, time.Since(start).Seconds()
+			default:
+			}
+			EncodeDataHeader(buf, seq)
+			if _, err := udpConn.Write(buf); err != nil {
+				break
+			}
+			seq++
+			sent++
+		}
+		return sent, time.Since(start).Seconds()
+	}
+
+	// Rate-limited: send in bursts, then busy-wait until the next interval.
+	// time.Sleep is too coarse (~1ms+ on most OS), so we use a token-bucket
+	// approach with 10ms intervals.
+	bytesPerSec := float64(bandwidth) / 8
+	const intervalNs = 10_000_000 // 10ms intervals
+	bytesPerInterval := bytesPerSec * float64(intervalNs) / float64(time.Second)
+	packetsPerInterval := int(bytesPerInterval/float64(packetSize)) + 1
+
+	intervalStart := time.Now()
+	var bytesSentInInterval int64
+
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return sent, time.Since(start).Seconds()
 		default:
 		}
+
+		// Check if we've exceeded this interval's budget.
+		if bytesSentInInterval >= int64(bytesPerInterval) {
+			// Busy-wait until next interval.
+			target := intervalStart.Add(time.Duration(intervalNs))
+			for time.Now().Before(target) {
+				// spin
+			}
+			intervalStart = time.Now()
+			bytesSentInInterval = 0
+		}
+
 		EncodeDataHeader(buf, seq)
 		if _, err := udpConn.Write(buf); err != nil {
 			break
 		}
 		seq++
 		sent++
-		if delay > 0 {
-			time.Sleep(delay)
+		bytesSentInInterval += int64(packetSize)
+
+		// Yield periodically to avoid starving the scheduler.
+		if sent%int64(packetsPerInterval) == 0 {
+			select {
+			case <-ctx.Done():
+				return sent, time.Since(start).Seconds()
+			default:
+			}
 		}
 	}
 	return sent, time.Since(start).Seconds()

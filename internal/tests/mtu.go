@@ -16,7 +16,7 @@ func init() {
 	server.RegisterHandler(protocol.TestMTU, handleMTUServer)
 }
 
-// MTU server: receive UDP packets of varying sizes and report what arrived.
+// MTU server: receive UDP packets of varying sizes and report the largest that arrived.
 func handleMTUServer(ctx context.Context, conn net.Conn, params json.RawMessage) (any, error) {
 	var p protocol.MTUParams
 	if params != nil {
@@ -47,7 +47,8 @@ func handleMTUServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		return nil, err
 	}
 
-	// Receive loop: report the size of each received packet.
+	// Receive loop: track the maximum size that arrives.
+	// The client sends probes of various sizes and a 0xFF terminator.
 	buf := make([]byte, 10000)
 	maxReceived := 0
 	for {
@@ -57,7 +58,7 @@ func handleMTUServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		default:
 		}
 
-		udpConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		udpConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		n, _, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -72,18 +73,18 @@ func handleMTUServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		if n > maxReceived {
 			maxReceived = n
 		}
-		// Echo back the received size.
-		if err := protocol.WriteMsg(conn, protocol.MsgTestStart, struct {
-			Size int `json:"size"`
-		}{Size: n}); err != nil {
-			break
-		}
 	}
 
 	return MTUMetrics{MTU: maxReceived + 28}, nil // +28 for IP(20)+UDP(8) headers
 }
 
-// RunMTUClient runs the path MTU discovery test from the client side.
+// RunMTUClient discovers the path MTU by sending UDP probes of varying sizes
+// and letting the server report the largest one that arrived.
+//
+// The protocol is fire-and-forget: the client sends all probes without waiting
+// for per-probe TCP confirmations, then reads a single TCP result from the
+// server. This avoids blocking on the shared TCP control connection (which
+// corrupts framing if deadlines are used and hangs if UDP is firewalled).
 func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMetrics, error) {
 	params, _ := json.Marshal(protocol.MTUParams{MinSize: 576, MaxSize: 9000})
 	if err := protocol.WriteMsg(conn, protocol.MsgTestReq, protocol.TestRequest{
@@ -122,60 +123,83 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 	}
 	defer udpConn.Close()
 
-	// Set DF bit.
+	// Set DF bit so oversized packets are dropped rather than fragmented.
 	platform.SetDontFragment(udpConn)
 
-	// Binary search for largest packet that gets through.
-	low, high := 548, 8972 // payload sizes (MTU - 28 for IP+UDP headers)
-	lastGood := low
+	// Send probes in descending size order. Use binary search on Write errors
+	// to find the local interface limit, then send probes for all sizes from
+	// that limit down to min so the server can determine what actually arrives.
+	minPayload, maxPayload := 548, 8972 // MTU - 28 for IP+UDP headers
 
+	// First, find the local interface limit via binary search on Write errors.
+	low, high := minPayload, maxPayload
+	localMax := minPayload
 	for low <= high {
-		select {
-		case <-ctx.Done():
-			return &MTUMetrics{MTU: lastGood + 28}, nil
-		default:
-		}
-
 		mid := (low + high) / 2
 		payload := make([]byte, mid)
-		// Send the probe.
 		_, err := udpConn.Write(payload)
 		if err != nil {
-			// Likely "message too long" — packet too big.
 			high = mid - 1
-			continue
-		}
-
-		// Wait for server confirmation with a short deadline so we don't
-		// hang forever when the probe packet is silently dropped.
-		conn.SetDeadline(time.Now().Add(3 * time.Second))
-		env, err := protocol.ReadMsg(conn)
-		conn.SetDeadline(time.Time{}) // clear deadline
-		if err != nil {
-			high = mid - 1
-			continue
-		}
-		if env.Type == protocol.MsgTestStart {
-			var resp struct {
-				Size int `json:"size"`
-			}
-			protocol.DecodeBody(env, &resp)
-			if resp.Size >= mid {
-				lastGood = mid
-				low = mid + 1
-			} else {
-				high = mid - 1
-			}
 		} else {
-			high = mid - 1
+			localMax = mid
+			low = mid + 1
 		}
 	}
 
+	// Now send probes from localMax down to minPayload so the server can
+	// determine the path MTU (largest packet that actually arrives).
+	// Use a step size to keep probe count reasonable (~20 probes).
+	step := max((localMax-minPayload)/20, 1)
+	for size := localMax; size >= minPayload; size -= step {
+		select {
+		case <-ctx.Done():
+			return &MTUMetrics{MTU: minPayload + 28}, nil
+		default:
+		}
+		payload := make([]byte, size)
+		udpConn.Write(payload)
+		// Small delay between probes to avoid burst loss.
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Always send the minimum size as a baseline.
+	udpConn.Write(make([]byte, minPayload))
+	time.Sleep(50 * time.Millisecond)
+
 	// Signal end of test.
 	udpConn.Write([]byte{0xFF})
+	time.Sleep(100 * time.Millisecond)
+	// Send terminator multiple times in case of packet loss.
+	udpConn.Write([]byte{0xFF})
 
-	// Read server's test result.
-	protocol.ReadMsg(conn)
+	// Read server's test result with a timeout. The server reports the largest
+	// packet size it actually received. Use a goroutine so we don't block the
+	// shared TCP connection indefinitely if the server is stuck.
+	type readResult struct {
+		env *protocol.Envelope
+		err error
+	}
+	ch := make(chan readResult, 1)
+	go func() {
+		e, err := protocol.ReadMsg(conn)
+		ch <- readResult{e, err}
+	}()
 
-	return &MTUMetrics{MTU: lastGood + 28}, nil
+	select {
+	case res := <-ch:
+		if res.err == nil && res.env.Type == protocol.MsgTestResult {
+			var result protocol.TestResultMsg
+			protocol.DecodeBody(res.env, &result)
+			var serverMetrics MTUMetrics
+			if json.Unmarshal(result.Metrics, &serverMetrics) == nil && serverMetrics.MTU > 0 {
+				return &serverMetrics, nil
+			}
+		}
+	case <-time.After(15 * time.Second):
+		// Server didn't respond in time (likely UDP fully blocked or old server
+		// with no read timeout). Fall back to local interface MTU. The blocked
+		// goroutine will be cleaned up when runTest closes the connection.
+	case <-ctx.Done():
+	}
+
+	return &MTUMetrics{MTU: localMax + 28}, nil
 }
