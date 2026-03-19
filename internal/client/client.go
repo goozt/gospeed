@@ -237,6 +237,12 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	// Enforce the timeout at the connection level so blocking reads/writes
+	// are interrupted when the per-test context expires (not on normal cancel).
+	deadline := time.Now().Add(timeout)
+	c.conn.SetDeadline(deadline)
+	defer c.conn.SetDeadline(time.Time{}) // clear deadline for next test
+
 	c.progress.TestStart(string(t))
 
 	metrics, grade, err := c.dispatchTest(ctx, t)

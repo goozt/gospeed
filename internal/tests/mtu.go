@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/goozt/gospeed/internal/platform"
 	"github.com/goozt/gospeed/internal/protocol"
@@ -56,6 +57,7 @@ func handleMTUServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		default:
 		}
 
+		udpConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		n, _, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -144,8 +146,11 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 			continue
 		}
 
-		// Wait for server confirmation.
+		// Wait for server confirmation with a short deadline so we don't
+		// hang forever when the probe packet is silently dropped.
+		conn.SetDeadline(time.Now().Add(3 * time.Second))
 		env, err := protocol.ReadMsg(conn)
+		conn.SetDeadline(time.Time{}) // clear deadline
 		if err != nil {
 			high = mid - 1
 			continue
