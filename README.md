@@ -222,7 +222,7 @@ task build              # Build both binaries
 task test               # Run tests
 task docker             # Build Docker image
 task release-snapshot   # Test GoReleaser locally
-task bump VERSION=1.2.1 # Tag and push a release
+task bump VERSION=1.2.2 # Tag and push a release
 ```
 
 ## License

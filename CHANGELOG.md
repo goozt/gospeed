@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.2] - 2026-03-19
+
+### Fixed
+- Data race in TCP progress loop using channel-based synchronization
+- CI test failures on Windows due to PowerShell argument parsing
+- Removed real domain from README examples
+
 ## [v1.2.1] - 2026-03-19
 
 ### Improved
