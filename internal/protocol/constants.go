@@ -14,15 +14,15 @@ const (
 type TestType string
 
 const (
-	TestLatency    TestType = "latency"
-	TestMTU        TestType = "mtu"
-	TestTCP        TestType = "tcp"
-	TestUDP        TestType = "udp"
-	TestJitter     TestType = "jitter"
+	TestLatency     TestType = "latency"
+	TestMTU         TestType = "mtu"
+	TestTCP         TestType = "tcp"
+	TestUDP         TestType = "udp"
+	TestJitter      TestType = "jitter"
 	TestBufferbloat TestType = "bufferbloat"
-	TestDNS        TestType = "dns"
-	TestConnect    TestType = "connect"
-	TestBidir      TestType = "bidir"
+	TestDNS         TestType = "dns"
+	TestConnect     TestType = "connect"
+	TestBidir       TestType = "bidir"
 )
 
 // DefaultTests is the scientifically chosen default test group.

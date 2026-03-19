@@ -39,12 +39,12 @@ type LatencyMetrics struct {
 
 // TCPMetrics holds TCP throughput results.
 type TCPMetrics struct {
-	Direction    string          `json:"direction"` // "upload" or "download"
-	Duration     float64         `json:"duration_s"`
-	BytesTotal   int64           `json:"bytes_total"`
-	BitsPerSec   float64         `json:"bits_per_sec"`
-	Streams      int             `json:"streams"`
-	Intervals    []IntervalStats `json:"intervals,omitempty"`
+	Direction  string          `json:"direction"` // "upload" or "download"
+	Duration   float64         `json:"duration_s"`
+	BytesTotal int64           `json:"bytes_total"`
+	BitsPerSec float64         `json:"bits_per_sec"`
+	Streams    int             `json:"streams"`
+	Intervals  []IntervalStats `json:"intervals,omitempty"`
 }
 
 // IntervalStats holds per-second throughput data.
@@ -57,14 +57,14 @@ type IntervalStats struct {
 
 // UDPMetrics holds UDP throughput and loss results.
 type UDPMetrics struct {
-	Duration     float64 `json:"duration_s"`
-	BytesTotal   int64   `json:"bytes_total"`
-	BitsPerSec   float64 `json:"bits_per_sec"`
-	PacketsSent  int64   `json:"packets_sent"`
-	PacketsRecv  int64   `json:"packets_recv"`
-	PacketsLost  int64   `json:"packets_lost"`
-	LossPercent  float64 `json:"loss_percent"`
-	OutOfOrder   int64   `json:"out_of_order"`
+	Duration    float64 `json:"duration_s"`
+	BytesTotal  int64   `json:"bytes_total"`
+	BitsPerSec  float64 `json:"bits_per_sec"`
+	PacketsSent int64   `json:"packets_sent"`
+	PacketsRecv int64   `json:"packets_recv"`
+	PacketsLost int64   `json:"packets_lost"`
+	LossPercent float64 `json:"loss_percent"`
+	OutOfOrder  int64   `json:"out_of_order"`
 }
 
 // JitterMetrics holds jitter measurement results.

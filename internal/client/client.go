@@ -16,25 +16,25 @@ import (
 
 // Config holds client configuration.
 type Config struct {
-	Server    string
-	Tests     []protocol.TestType
-	JSON      bool
-	CSV       bool
-	History   bool
-	Ping      bool
-	TLS       bool
-	TLSSkip   bool
-	Streams   int
-	Duration  int
+	Server   string
+	Tests    []protocol.TestType
+	JSON     bool
+	CSV      bool
+	History  bool
+	Ping     bool
+	TLS      bool
+	TLSSkip  bool
+	Streams  int
+	Duration int
 }
 
 // Client manages a connection to a gospeed server.
 type Client struct {
-	cfg            Config
-	conn           net.Conn
-	sessID         string
-	serverTests    []protocol.TestType
-	progress       *Progress
+	cfg         Config
+	conn        net.Conn
+	sessID      string
+	serverTests []protocol.TestType
+	progress    *Progress
 }
 
 // New creates a new client with the given configuration.
@@ -51,36 +51,15 @@ func (c *Client) Run(ctx context.Context) error {
 		return results.PrintHistory(os.Stdout, 20)
 	}
 
-	// Set connection deadline from context so blocked I/O unblocks on cancel.
 	go func() {
 		<-ctx.Done()
 		if c.conn != nil {
-			// Force-close unblocks any blocked Read/Write.
 			c.conn.SetDeadline(time.Now())
 		}
 	}()
 
 	if c.cfg.Ping {
-		const maxRetries = 5
-		for attempt := range maxRetries {
-			err := c.connect(ctx)
-			if err == nil {
-				fmt.Printf("OK — server %s is reachable (session %s)\n", c.cfg.Server, c.sessID)
-				c.close()
-				return nil
-			}
-			c.close()
-			if attempt < maxRetries-1 {
-				fmt.Fprintf(os.Stderr, "ping attempt %d/%d failed: %v\n", attempt+1, maxRetries, err)
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(2 * time.Second):
-				}
-			} else {
-				return fmt.Errorf("ping failed after %d attempts: %w", maxRetries, err)
-			}
-		}
+		return c.runPing(ctx)
 	}
 
 	if err := c.connect(ctx); err != nil {
@@ -88,28 +67,67 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 	defer c.close()
 
+	testList := c.filterTests()
+	report := c.executeTests(ctx, testList)
+
+	if len(report.Results) > 0 {
+		report.OverallGrade = results.ComputeOverallGrade(report.Results)
+		c.outputReport(report)
+	}
+
+	return nil
+}
+
+func (c *Client) runPing(ctx context.Context) error {
+	const maxRetries = 5
+	for attempt := range maxRetries {
+		err := c.connect(ctx)
+		if err == nil {
+			fmt.Printf("OK — server %s is reachable (session %s)\n", c.cfg.Server, c.sessID)
+			c.close()
+			return nil
+		}
+		c.close()
+		if attempt < maxRetries-1 {
+			fmt.Fprintf(os.Stderr, "ping attempt %d/%d failed: %v\n", attempt+1, maxRetries, err)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(2 * time.Second):
+			}
+		} else {
+			return fmt.Errorf("ping failed after %d attempts: %w", maxRetries, err)
+		}
+	}
+	return nil
+}
+
+func (c *Client) filterTests() []protocol.TestType {
 	testList := c.cfg.Tests
 	if len(testList) == 0 {
 		testList = protocol.DefaultTests
 	}
 
-	// Filter out tests not supported by the server.
-	if len(c.serverTests) > 0 {
-		supported := make(map[protocol.TestType]bool, len(c.serverTests))
-		for _, t := range c.serverTests {
-			supported[t] = true
-		}
-		filtered := testList[:0:0]
-		for _, t := range testList {
-			if supported[t] {
-				filtered = append(filtered, t)
-			} else {
-				fmt.Fprintf(os.Stderr, "  skipping %s: not supported by server\n", t)
-			}
-		}
-		testList = filtered
+	if len(c.serverTests) == 0 {
+		return testList
 	}
 
+	supported := make(map[protocol.TestType]bool, len(c.serverTests))
+	for _, t := range c.serverTests {
+		supported[t] = true
+	}
+	filtered := testList[:0:0]
+	for _, t := range testList {
+		if supported[t] {
+			filtered = append(filtered, t)
+		} else {
+			fmt.Fprintf(os.Stderr, "  skipping %s: not supported by server\n", t)
+		}
+	}
+	return filtered
+}
+
+func (c *Client) executeTests(ctx context.Context, testList []protocol.TestType) *results.Report {
 	report := &results.Report{
 		Timestamp: time.Now(),
 		Server:    c.cfg.Server,
@@ -133,29 +151,23 @@ func (c *Client) Run(ctx context.Context) error {
 			report.Results = append(report.Results, *result)
 		}
 	}
+	return report
+}
 
-	if len(report.Results) > 0 {
-		report.OverallGrade = results.ComputeOverallGrade(report.Results)
-
-		// Output results.
-		switch {
-		case c.cfg.JSON:
-			results.FormatJSON(os.Stdout, report)
-		case c.cfg.CSV:
-			results.FormatCSV(os.Stdout, report)
-		default:
-			c.progress.Clear()
-			fmt.Println()
-			results.FormatTable(os.Stdout, report)
-		}
-
-		// Save to history.
-		if err := results.SaveHistory(report); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to save history: %v\n", err)
-		}
+func (c *Client) outputReport(report *results.Report) {
+	switch {
+	case c.cfg.JSON:
+		results.FormatJSON(os.Stdout, report)
+	case c.cfg.CSV:
+		results.FormatCSV(os.Stdout, report)
+	default:
+		c.progress.Clear()
+		fmt.Println()
+		results.FormatTable(os.Stdout, report)
 	}
-
-	return nil
+	if err := results.SaveHistory(report); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to save history: %v\n", err)
+	}
 }
 
 func (c *Client) connect(ctx context.Context) error {
@@ -214,7 +226,6 @@ func (c *Client) close() {
 }
 
 func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *results.TestResult, err error) {
-	// Panic recovery — a crashing test shouldn't take down the process.
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v", r)
@@ -222,98 +233,13 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 		}
 	}()
 
-	// Per-test timeout: 3x configured duration (min 30s) to auto-abort stuck tests.
-	timeout := max(time.Duration(c.cfg.Duration*3) * time.Second, 30 * time.Second)
+	timeout := max(time.Duration(c.cfg.Duration*3)*time.Second, 30*time.Second)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	c.progress.TestStart(string(t))
 
-	var metrics any
-	var grade results.Grade
-
-	switch t {
-	case protocol.TestLatency:
-		m, e := tests.RunLatencyClient(ctx, c.conn, 20)
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-		grade = results.GradeLatency(m.Avg)
-
-	case protocol.TestMTU:
-		m, e := tests.RunMTUClient(ctx, c.conn, c.cfg.Server)
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-
-	case protocol.TestTCP:
-		m, e := tests.RunTCPClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, false, func(bps float64) {
-			c.progress.Status("TCP upload: %s", FormatBPS(bps))
-		})
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-		grade = results.GradeThroughput(m.BitsPerSec)
-
-	case protocol.TestUDP:
-		m, e := tests.RunUDPClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, 1400, 0, func(bps float64) {
-			c.progress.Status("UDP: %s", FormatBPS(bps))
-		})
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-		grade = results.GradeLoss(m.LossPercent)
-
-	case protocol.TestJitter:
-		m, e := tests.RunJitterClient(ctx, c.conn, c.cfg.Server, 20, 200)
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-		grade = results.GradeJitter(m.AvgJitter)
-
-	case protocol.TestBufferbloat:
-		m, e := tests.RunBufferbloatClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, c.cfg.Streams, func(status string) {
-			c.progress.Status("Bufferbloat: %s", status)
-		})
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-		grade = results.GradeBufferbloat(m.RPM)
-
-	case protocol.TestDNS:
-		host, _, _ := net.SplitHostPort(c.cfg.Server)
-		m, e := tests.RunDNSClient(ctx, host, 10)
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-
-	case protocol.TestConnect:
-		m, e := tests.RunConnectClient(ctx, c.cfg.Server, 10)
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-
-	case protocol.TestBidir:
-		m, e := tests.RunBidirClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, func(dir string, bps float64) {
-			c.progress.Status("Bidir %s: %s", dir, FormatBPS(bps))
-		})
-		if e != nil {
-			return nil, e
-		}
-		metrics = m
-
-	default:
-		err = fmt.Errorf("unknown test: %s", t)
-	}
-
+	metrics, grade, err := c.dispatchTest(ctx, t)
 	if err != nil {
 		return nil, err
 	}
@@ -324,4 +250,74 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 		Metrics: metrics,
 		Grade:   grade,
 	}, nil
+}
+
+func (c *Client) dispatchTest(ctx context.Context, t protocol.TestType) (any, results.Grade, error) {
+	switch t {
+	case protocol.TestLatency:
+		m, e := tests.RunLatencyClient(ctx, c.conn, 20)
+		if e != nil {
+			return nil, "", e
+		}
+		return m, results.GradeLatency(m.Avg), nil
+	case protocol.TestMTU:
+		m, e := tests.RunMTUClient(ctx, c.conn, c.cfg.Server)
+		return m, "", e
+	case protocol.TestTCP:
+		return c.runTCPTest(ctx)
+	case protocol.TestUDP:
+		return c.runUDPTest(ctx)
+	case protocol.TestJitter:
+		m, e := tests.RunJitterClient(ctx, c.conn, c.cfg.Server, 20, 200)
+		if e != nil {
+			return nil, "", e
+		}
+		return m, results.GradeJitter(m.AvgJitter), nil
+	case protocol.TestBufferbloat:
+		return c.runBufferbloatTest(ctx)
+	case protocol.TestDNS:
+		host, _, _ := net.SplitHostPort(c.cfg.Server)
+		m, e := tests.RunDNSClient(ctx, host, 10)
+		return m, "", e
+	case protocol.TestConnect:
+		m, e := tests.RunConnectClient(ctx, c.cfg.Server, 10)
+		return m, "", e
+	case protocol.TestBidir:
+		m, e := tests.RunBidirClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, func(dir string, bps float64) {
+			c.progress.Status("Bidir %s: %s", dir, FormatBPS(bps))
+		})
+		return m, "", e
+	default:
+		return nil, "", fmt.Errorf("unknown test: %s", t)
+	}
+}
+
+func (c *Client) runTCPTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunTCPClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, false, func(bps float64) {
+		c.progress.Status("TCP upload: %s", FormatBPS(bps))
+	})
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeThroughput(m.BitsPerSec), nil
+}
+
+func (c *Client) runUDPTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunUDPClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, 1400, 0, func(bps float64) {
+		c.progress.Status("UDP: %s", FormatBPS(bps))
+	})
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeLoss(m.LossPercent), nil
+}
+
+func (c *Client) runBufferbloatTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunBufferbloatClient(ctx, c.conn, c.cfg.Server, c.cfg.Duration, c.cfg.Streams, func(status string) {
+		c.progress.Status("Bufferbloat: %s", status)
+	})
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeBufferbloat(m.RPM), nil
 }
