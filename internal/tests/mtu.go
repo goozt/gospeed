@@ -107,13 +107,23 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 	var ready protocol.TestReady
 	protocol.DecodeBody(env, &ready)
 
-	// Resolve server host for UDP.
+	udpConn, err := dialMTUProbe(serverAddr, ready.DataPort)
+	if err != nil {
+		return nil, err
+	}
+	defer udpConn.Close()
+
+	localMax := sendMTUProbes(ctx, udpConn)
+
+	return readMTUResult(ctx, conn, localMax)
+}
+
+func dialMTUProbe(serverAddr string, dataPort int) (*net.UDPConn, error) {
 	host, _, err := net.SplitHostPort(serverAddr)
 	if err != nil {
 		host = serverAddr
 	}
-	udpAddr := fmt.Sprintf("%s:%d", host, ready.DataPort)
-	raddr, err := net.ResolveUDPAddr("udp", udpAddr)
+	raddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host, dataPort))
 	if err != nil {
 		return nil, err
 	}
@@ -121,24 +131,19 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 	if err != nil {
 		return nil, err
 	}
-	defer udpConn.Close()
-
-	// Set DF bit so oversized packets are dropped rather than fragmented.
 	platform.SetDontFragment(udpConn)
+	return udpConn, nil
+}
 
-	// Send probes in descending size order. Use binary search on Write errors
-	// to find the local interface limit, then send probes for all sizes from
-	// that limit down to min so the server can determine what actually arrives.
+func sendMTUProbes(ctx context.Context, udpConn *net.UDPConn) int {
 	minPayload, maxPayload := 548, 8972 // MTU - 28 for IP+UDP headers
 
-	// First, find the local interface limit via binary search on Write errors.
+	// Binary search for local interface limit.
 	low, high := minPayload, maxPayload
 	localMax := minPayload
 	for low <= high {
 		mid := (low + high) / 2
-		payload := make([]byte, mid)
-		_, err := udpConn.Write(payload)
-		if err != nil {
+		if _, err := udpConn.Write(make([]byte, mid)); err != nil {
 			high = mid - 1
 		} else {
 			localMax = mid
@@ -146,34 +151,29 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 		}
 	}
 
-	// Now send probes from localMax down to minPayload so the server can
-	// determine the path MTU (largest packet that actually arrives).
-	// Use a step size to keep probe count reasonable (~20 probes).
+	// Send probes from localMax down to minPayload.
 	step := max((localMax-minPayload)/20, 1)
 	for size := localMax; size >= minPayload; size -= step {
 		select {
 		case <-ctx.Done():
-			return &MTUMetrics{MTU: minPayload + 28}, nil
+			return localMax
 		default:
 		}
-		payload := make([]byte, size)
-		udpConn.Write(payload)
-		// Small delay between probes to avoid burst loss.
+		udpConn.Write(make([]byte, size))
 		time.Sleep(10 * time.Millisecond)
 	}
-	// Always send the minimum size as a baseline.
 	udpConn.Write(make([]byte, minPayload))
 	time.Sleep(50 * time.Millisecond)
 
-	// Signal end of test.
+	// Signal end of test (send twice for reliability).
 	udpConn.Write([]byte{0xFF})
 	time.Sleep(100 * time.Millisecond)
-	// Send terminator multiple times in case of packet loss.
 	udpConn.Write([]byte{0xFF})
 
-	// Read server's test result with a timeout. The server reports the largest
-	// packet size it actually received. Use a goroutine so we don't block the
-	// shared TCP connection indefinitely if the server is stuck.
+	return localMax
+}
+
+func readMTUResult(ctx context.Context, conn net.Conn, localMax int) (*MTUMetrics, error) {
 	type readResult struct {
 		env *protocol.Envelope
 		err error
@@ -195,9 +195,7 @@ func RunMTUClient(ctx context.Context, conn net.Conn, serverAddr string) (*MTUMe
 			}
 		}
 	case <-time.After(15 * time.Second):
-		// Server didn't respond in time (likely UDP fully blocked or old server
-		// with no read timeout). Fall back to local interface MTU. The blocked
-		// goroutine will be cleaned up when runTest closes the connection.
+		// Server didn't respond; fall back to local interface MTU.
 	case <-ctx.Done():
 	}
 

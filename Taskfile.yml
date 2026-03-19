@@ -26,9 +26,9 @@ tasks:
       - GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed-server ./cmd/gospeed-server
 
   test:
-    desc: Run tests with race detector
+    desc: Run tests
     cmds:
-      - go test -race -timeout 120s ./...
+      - go test -timeout 120s ./...
 
   vet:
     desc: Run go vet

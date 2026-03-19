@@ -303,54 +303,78 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 func (c *Client) dispatchTest(ctx context.Context, t protocol.TestType) (any, results.Grade, error) {
 	switch t {
 	case protocol.TestLatency:
-		m, e := tests.RunLatencyClient(ctx, c.conn, 20)
-		if e != nil {
-			return nil, "", e
-		}
-		return m, results.GradeLatency(m.Avg), nil
+		return c.runLatencyTest(ctx)
 	case protocol.TestMTU:
-		m, e := tests.RunMTUClient(ctx, c.conn, c.cfg.Server)
-		if e != nil {
-			return nil, "", e
-		}
-		return m, results.GradeMTU(m.MTU), nil
+		return c.runMTUTest(ctx)
 	case protocol.TestTCP:
 		return c.runTCPTest(ctx)
 	case protocol.TestUDP:
 		return c.runUDPTest(ctx)
 	case protocol.TestJitter:
-		m, e := tests.RunJitterClient(ctx, c.conn, c.cfg.Server, 20, 200)
-		if e != nil {
-			return nil, "", e
-		}
-		return m, results.GradeJitter(m.AvgJitter), nil
+		return c.runJitterTest(ctx)
 	case protocol.TestBufferbloat:
 		return c.runBufferbloatTest(ctx)
 	case protocol.TestDNS:
-		host, _, _ := net.SplitHostPort(c.cfg.Server)
-		m, e := tests.RunDNSClient(ctx, host, 10)
-		if e != nil {
-			return nil, "", e
-		}
-		return m, results.GradeDNS(m.Avg), nil
+		return c.runDNSTest(ctx)
 	case protocol.TestConnect:
-		m, e := tests.RunConnectClient(ctx, c.cfg.Server, 10)
-		if e != nil {
-			return nil, "", e
-		}
-		return m, results.GradeConnect(m.Avg), nil
+		return c.runConnectTest(ctx)
 	case protocol.TestBidir:
-		m, e := tests.RunBidirClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, func(dir string, bps float64) {
-			c.progress.Status("Bidir %s: %s", dir, FormatBPS(bps))
-		})
-		if e != nil {
-			return nil, "", e
-		}
-		worse := min(m.Upload.BitsPerSec, m.Download.BitsPerSec)
-		return m, results.GradeThroughput(worse), nil
+		return c.runBidirTest(ctx)
 	default:
 		return nil, "", fmt.Errorf("unknown test: %s", t)
 	}
+}
+
+func (c *Client) runLatencyTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunLatencyClient(ctx, c.conn, 20)
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeLatency(m.Avg), nil
+}
+
+func (c *Client) runMTUTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunMTUClient(ctx, c.conn, c.cfg.Server)
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeMTU(m.MTU), nil
+}
+
+func (c *Client) runJitterTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunJitterClient(ctx, c.conn, c.cfg.Server, 20, 200)
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeJitter(m.AvgJitter), nil
+}
+
+func (c *Client) runDNSTest(ctx context.Context) (any, results.Grade, error) {
+	host, _, _ := net.SplitHostPort(c.cfg.Server)
+	m, e := tests.RunDNSClient(ctx, host, 10)
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeDNS(m.Avg), nil
+}
+
+func (c *Client) runConnectTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunConnectClient(ctx, c.cfg.Server, 10)
+	if e != nil {
+		return nil, "", e
+	}
+	return m, results.GradeConnect(m.Avg), nil
+}
+
+func (c *Client) runBidirTest(ctx context.Context) (any, results.Grade, error) {
+	m, e := tests.RunBidirClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, func(dir string, bps float64) {
+		c.progress.Status("Bidir %s: %s", dir, FormatBPS(bps))
+	})
+	if e != nil {
+		return nil, "", e
+	}
+	worse := min(m.Upload.BitsPerSec, m.Download.BitsPerSec)
+	return m, results.GradeThroughput(worse), nil
 }
 
 func (c *Client) runTCPTest(ctx context.Context) (any, results.Grade, error) {
@@ -363,6 +387,26 @@ func (c *Client) runTCPTest(ctx context.Context) (any, results.Grade, error) {
 	return m, results.GradeThroughput(m.BitsPerSec), nil
 }
 
+// maxThroughputBps extracts the highest bits-per-second value from a test metric.
+func maxThroughputBps(metrics any) float64 {
+	switch m := metrics.(type) {
+	case *tests.TCPMetrics:
+		return m.BitsPerSec
+	case tests.TCPMetrics:
+		return m.BitsPerSec
+	case *tests.BidirMetrics:
+		return max(m.Upload.BitsPerSec, m.Download.BitsPerSec)
+	case tests.BidirMetrics:
+		return max(m.Upload.BitsPerSec, m.Download.BitsPerSec)
+	case *tests.BufferbloatMetrics:
+		return m.Throughput.BitsPerSec
+	case tests.BufferbloatMetrics:
+		return m.Throughput.BitsPerSec
+	default:
+		return 0
+	}
+}
+
 // estimateUDPBandwidth derives a UDP send rate from prior test results.
 // Uses TCP throughput if available, otherwise falls back to 100 Mbps.
 func (c *Client) estimateUDPBandwidth() int64 {
@@ -370,37 +414,8 @@ func (c *Client) estimateUDPBandwidth() int64 {
 
 	var maxBps float64
 	for _, r := range c.completed {
-		switch m := r.Metrics.(type) {
-		case *tests.TCPMetrics:
-			if m.BitsPerSec > maxBps {
-				maxBps = m.BitsPerSec
-			}
-		case tests.TCPMetrics:
-			if m.BitsPerSec > maxBps {
-				maxBps = m.BitsPerSec
-			}
-		case *tests.BidirMetrics:
-			if m.Upload.BitsPerSec > maxBps {
-				maxBps = m.Upload.BitsPerSec
-			}
-			if m.Download.BitsPerSec > maxBps {
-				maxBps = m.Download.BitsPerSec
-			}
-		case tests.BidirMetrics:
-			if m.Upload.BitsPerSec > maxBps {
-				maxBps = m.Upload.BitsPerSec
-			}
-			if m.Download.BitsPerSec > maxBps {
-				maxBps = m.Download.BitsPerSec
-			}
-		case *tests.BufferbloatMetrics:
-			if m.Throughput.BitsPerSec > maxBps {
-				maxBps = m.Throughput.BitsPerSec
-			}
-		case tests.BufferbloatMetrics:
-			if m.Throughput.BitsPerSec > maxBps {
-				maxBps = m.Throughput.BitsPerSec
-			}
+		if bps := maxThroughputBps(r.Metrics); bps > maxBps {
+			maxBps = bps
 		}
 	}
 

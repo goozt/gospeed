@@ -69,36 +69,38 @@ func main() {
 		}()
 	}
 
+	tlsCfg, err := buildTLSConfig(*tlsACME, *tlsSelfSigned, *tlsCert, *tlsKey, *domain, *email, *certDir)
+	if err != nil {
+		log.Fatalf("tls: %v", err)
+	}
+
+	if tlsCfg != nil {
+		err = srv.ListenAndServeTLS(ctx, tlsCfg)
+	} else {
+		err = srv.ListenAndServe(ctx)
+	}
+	if err != nil {
+		log.Fatalf("server error: %v", err)
+	}
+}
+
+func buildTLSConfig(acme, selfSigned bool, certFile, keyFile, domain, email, certDir string) (*tls.Config, error) {
 	switch {
-	case *tlsACME:
-		tlsCfg, err := tlsutil.ACMEConfig(*domain, *email, *certDir)
-		if err != nil {
-			log.Fatalf("acme: %v", err)
-		}
-		if err := srv.ListenAndServeTLS(ctx, tlsCfg); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
-	case *tlsSelfSigned:
+	case acme:
+		return tlsutil.ACMEConfig(domain, email, certDir)
+	case selfSigned:
 		cert, err := tlsutil.SelfSignedCert()
 		if err != nil {
-			log.Fatalf("self-signed cert: %v", err)
+			return nil, err
 		}
-		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-		if err := srv.ListenAndServeTLS(ctx, tlsCfg); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
-	case *tlsCert != "" && *tlsKey != "":
-		cert, err := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
+		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+	case certFile != "" && keyFile != "":
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			log.Fatalf("load tls cert: %v", err)
+			return nil, err
 		}
-		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-		if err := srv.ListenAndServeTLS(ctx, tlsCfg); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
+		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
 	default:
-		if err := srv.ListenAndServe(ctx); err != nil {
-			log.Fatalf("server error: %v", err)
-		}
+		return nil, nil
 	}
 }
