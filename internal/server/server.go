@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -108,6 +109,40 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 		log.Printf("session %s error: %v", sess.ID, err)
 	}
 	log.Printf("session %s ended", sess.ID)
+}
+
+// ListenAndServeTLS starts accepting TLS connections using the provided config.
+func (s *Server) ListenAndServeTLS(ctx context.Context, tlsCfg *tls.Config) error {
+	ln, err := tls.Listen("tcp", s.Addr, tlsCfg)
+	if err != nil {
+		return fmt.Errorf("tls listen: %w", err)
+	}
+	s.listener = ln
+	log.Printf("gospeed server listening on %s (TLS)", s.Addr)
+
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				s.wg.Wait()
+				return nil
+			default:
+				log.Printf("accept error: %v", err)
+				continue
+			}
+		}
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.handleConn(ctx, conn)
+		}()
+	}
 }
 
 // Listener returns the underlying net.Listener (for tests).

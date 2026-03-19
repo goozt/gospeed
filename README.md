@@ -45,8 +45,30 @@ gospeed-server
 # Custom address
 gospeed-server -addr :8080
 
-# With TLS
-gospeed-server -tls-cert cert.pem -tls-key key.pem
+# With TLS (self-signed, auto-generated)
+gospeed-server --tls-self-signed
+
+# With TLS (your own certificate)
+gospeed-server --tls-cert cert.pem --tls-key key.pem
+
+# With TLS (Let's Encrypt ACME)
+gospeed-server --tls-acme --domain speed.example.com --email admin@example.com
+```
+
+#### Server Options
+
+```
+-a, --addr string       Listen address (host:port)
+-h, --host string       Specific host address
+-p, --port int          Listening port (default 9000)
+-v, --version           Print version and exit
+    --tls-cert string   TLS certificate file
+    --tls-key string    TLS key file
+    --tls-self-signed   Use auto-generated self-signed certificate
+    --tls-acme          Use Let's Encrypt ACME for certificate provisioning
+    --domain string     Domain name for ACME certificate (required with --tls-acme)
+    --email string      Email address for ACME account (required with --tls-acme)
+    --cert-dir string   Directory to cache ACME certificates
 ```
 
 ### Client
