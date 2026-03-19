@@ -155,14 +155,16 @@ func RunTCPClient(ctx context.Context, conn net.Conn, serverAddr string, streams
 		return nil, err
 	}
 
-	var intervals []IntervalStats
-	go tcpProgressLoop(ctx, &totalBytes, start, deadline, progress, &intervals)
+	intervalsCh := make(chan []IntervalStats, 1)
+	go tcpProgressLoop(ctx, &totalBytes, start, deadline, progress, intervalsCh)
 
 	wg.Wait()
 	elapsed := time.Since(start).Seconds()
 	total := totalBytes.Load()
 
 	protocol.ReadMsg(conn)
+
+	intervals := <-intervalsCh
 
 	return &TCPMetrics{
 		Direction:  dirString(reverse),
@@ -206,11 +208,13 @@ func tcpClientOpenStreams(wg *sync.WaitGroup, totalBytes *atomic.Int64, streams 
 	return nil
 }
 
-func tcpProgressLoop(ctx context.Context, totalBytes *atomic.Int64, start time.Time, deadline time.Time, progress func(float64), intervals *[]IntervalStats) {
+func tcpProgressLoop(ctx context.Context, totalBytes *atomic.Int64, start time.Time, deadline time.Time, progress func(float64), out chan<- []IntervalStats) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	var intervals []IntervalStats
 	lastBytes := int64(0)
 	intervalStart := 0.0
+	defer func() { out <- intervals }()
 	for {
 		select {
 		case <-ticker.C:
@@ -218,7 +222,7 @@ func tcpProgressLoop(ctx context.Context, totalBytes *atomic.Int64, start time.T
 			elapsed := time.Since(start).Seconds()
 			delta := cur - lastBytes
 			bps := float64(delta) * 8 / (elapsed - intervalStart)
-			*intervals = append(*intervals, IntervalStats{
+			intervals = append(intervals, IntervalStats{
 				Start:      intervalStart,
 				End:        elapsed,
 				Bytes:      delta,
