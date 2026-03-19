@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.1] - 2026-03-19
+
+### Improved
+- Comprehensive test coverage across all packages (protocol, server, results, tests)
+- Reduced cyclomatic complexity in 10 functions via focused helper extraction
+- Code formatting cleanup with gofmt -s
+- CI pipeline with coverage reporting via Codecov
+- Added project badges (CI, coverage, Go Report Card, Go Reference, License, Release)
+
 ## [v1.2.0] - 2026-03-19
 
 ### Added
