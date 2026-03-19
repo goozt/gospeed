@@ -737,7 +737,22 @@ gospeed</code>
     <div class="changelog-list">
 
       <div class="changelog-version">
-        <h3>v1.3.0 <span class="tag">Latest</span></h3>
+        <h3>v1.3.1 <span class="tag">Latest</span></h3>
+        <div class="date">2026-03-19</div>
+        <h4>Improved</h4>
+        <ul>
+          <li>Reduced cyclomatic complexity in MTU client, UDP bandwidth estimation, test dispatcher, and server main</li>
+          <li>Added <code>dev-init</code> task for bootstrapping development tool dependencies</li>
+          <li>Removed CGO requirement from local test task (race detector remains in CI)</li>
+        </ul>
+        <h4>Fixed</h4>
+        <ul>
+          <li>Dockerfile <code>go.mod</code> copy command</li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.3.0</h3>
         <div class="date">2026-03-19</div>
         <h4>Added</h4>
         <ul>

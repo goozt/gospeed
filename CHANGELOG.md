@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.1] - 2026-03-19
+
+### Improved
+- Reduced cyclomatic complexity in MTU client, UDP bandwidth estimation, test dispatcher, and server main
+- Added `dev-init` task for bootstrapping development tool dependencies
+- Removed CGO requirement from local test task (race detector remains in CI)
+
+### Fixed
+- Dockerfile `go.mod` copy command
+
 ## [v1.3.0] - 2026-03-19
 
 ### Added
