@@ -66,6 +66,7 @@ func (s *Session) handshake() error {
 	ack := protocol.HelloAck{
 		Version:   protocol.ProtocolVersion,
 		SessionID: s.ID,
+		Tests:     RegisteredTests(),
 	}
 	return protocol.WriteMsg(s.conn, protocol.MsgHelloAck, ack)
 }

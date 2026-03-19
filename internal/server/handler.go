@@ -18,3 +18,12 @@ var handlers = map[protocol.TestType]TestHandler{}
 func RegisterHandler(t protocol.TestType, h TestHandler) {
 	handlers[t] = h
 }
+
+// RegisteredTests returns the list of test types with registered handlers.
+func RegisteredTests() []protocol.TestType {
+	tests := make([]protocol.TestType, 0, len(handlers))
+	for t := range handlers {
+		tests = append(tests, t)
+	}
+	return tests
+}

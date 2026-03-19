@@ -30,10 +30,11 @@ type Config struct {
 
 // Client manages a connection to a gospeed server.
 type Client struct {
-	cfg      Config
-	conn     net.Conn
-	sessID   string
-	progress *Progress
+	cfg            Config
+	conn           net.Conn
+	sessID         string
+	serverTests    []protocol.TestType
+	progress       *Progress
 }
 
 // New creates a new client with the given configuration.
@@ -90,6 +91,23 @@ func (c *Client) Run(ctx context.Context) error {
 	testList := c.cfg.Tests
 	if len(testList) == 0 {
 		testList = protocol.DefaultTests
+	}
+
+	// Filter out tests not supported by the server.
+	if len(c.serverTests) > 0 {
+		supported := make(map[protocol.TestType]bool, len(c.serverTests))
+		for _, t := range c.serverTests {
+			supported[t] = true
+		}
+		filtered := testList[:0:0]
+		for _, t := range testList {
+			if supported[t] {
+				filtered = append(filtered, t)
+			} else {
+				fmt.Fprintf(os.Stderr, "  skipping %s: not supported by server\n", t)
+			}
+		}
+		testList = filtered
 	}
 
 	report := &results.Report{
@@ -183,6 +201,7 @@ func (c *Client) connect(ctx context.Context) error {
 	var ack protocol.HelloAck
 	protocol.DecodeBody(env, &ack)
 	c.sessID = ack.SessionID
+	c.serverTests = ack.Tests
 
 	return nil
 }

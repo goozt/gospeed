@@ -16,8 +16,9 @@ type Hello struct {
 
 // HelloAck is the server's reply to Hello.
 type HelloAck struct {
-	Version   int    `json:"version"`
-	SessionID string `json:"session_id"`
+	Version   int        `json:"version"`
+	SessionID string     `json:"session_id"`
+	Tests     []TestType `json:"tests,omitempty"`
 }
 
 // TestRequest asks the server to prepare a specific test.
