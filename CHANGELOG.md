@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.0] - 2026-03-19
+
+### Added
+- Brand assets: logos (light, dark, icon), favicons (light/dark mode), banners, and wordmark
+- Health check server option (`--health`) for gospeed-server
+- Build task for Linux cross-compilation (`task build-linux`)
+- Website with favicons, logo integration, and slogan banner
+
+### Improved
+- Enhanced interactive output for test results with better formatting
+- Improved test result grading and connection handling in client
+- Enforced connection deadlines in tests to prevent blocking
+- Updated documentation across README and website for accuracy and consistency
+
+### Fixed
+- UDP bandwidth estimation in client tests
+- Command flag consistency in README (double-dash style)
+
 ## [v1.2.2] - 2026-03-19
 
 ### Fixed
