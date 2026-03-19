@@ -16,7 +16,7 @@ func TestTCPUploadLoopback(t *testing.T) {
 	}
 	defer ln.Close()
 
-	serverDone := startTCPServer(t, ln, false)
+	serverDone := startTCPServer(t, ln)
 
 	conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
@@ -68,7 +68,7 @@ func TestTCPDownloadLoopback(t *testing.T) {
 	}
 	defer ln.Close()
 
-	serverDone := startTCPServer(t, ln, true)
+	serverDone := startTCPServer(t, ln)
 
 	conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
@@ -107,7 +107,7 @@ func TestTCPDownloadLoopback(t *testing.T) {
 }
 
 // startTCPServer runs a minimal server handling handshake + TCP test.
-func startTCPServer(t *testing.T, ln net.Listener, reverse bool) chan error {
+func startTCPServer(t *testing.T, ln net.Listener) chan error {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() {
