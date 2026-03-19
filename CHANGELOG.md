@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.0] - 2026-03-19
+
 ### Added
 - `--ping` flag for quick server reachability check with 5 retries
 - Server advertises supported tests in handshake; client skips unsupported tests
