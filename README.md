@@ -97,10 +97,10 @@ gospeed-server --tls-acme --domain speed.example.com --email admin@example.com
 
 ```sh
 # Run default test suite against a server
-gospeed -s speed.apps.n2h.me
+gospeed -s speed.example.com
 
 # Use environment variable instead of -s flag
-export GOSPEED_SERVER_ADDR=speed.apps.n2h.me:9000
+export GOSPEED_SERVER_ADDR=speed.example.com:9000
 gospeed
 
 # Default: localhost:9000
