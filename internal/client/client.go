@@ -69,6 +69,16 @@ func (c *Client) Run(ctx context.Context) error {
 	defer c.close()
 
 	testList := c.filterTests()
+
+	// Print header immediately for interactive (table) output.
+	if !c.cfg.JSON && !c.cfg.CSV {
+		c.progress.Clear()
+		fmt.Println()
+		fmt.Fprintln(os.Stdout, results.Header("gospeed results"))
+		fmt.Fprintf(os.Stdout, "  Server: %s\n", results.Bold(c.cfg.Server))
+		fmt.Fprintf(os.Stdout, "  Time:   %s\n\n", results.Dim(time.Now().Format(time.RFC3339)))
+	}
+
 	report := c.executeTests(ctx, testList)
 
 	if len(report.Results) > 0 {
@@ -155,6 +165,11 @@ func (c *Client) executeTests(ctx context.Context, testList []protocol.TestType)
 		if result != nil {
 			report.Results = append(report.Results, *result)
 			c.completed = append(c.completed, *result)
+			// Print result immediately for interactive output.
+			if !c.cfg.JSON && !c.cfg.CSV {
+				results.FormatTestResult(os.Stdout, *result)
+				fmt.Println()
+			}
 		}
 	}
 	return report
@@ -167,9 +182,8 @@ func (c *Client) outputReport(report *results.Report) {
 	case c.cfg.CSV:
 		results.FormatCSV(os.Stdout, report)
 	default:
-		c.progress.Clear()
-		fmt.Println()
-		results.FormatTable(os.Stdout, report)
+		// Results already printed incrementally; just print the overall grade.
+		fmt.Fprintf(os.Stdout, "%s\n", results.Header(fmt.Sprintf("Overall: %s", results.ColorGrade(report.OverallGrade))))
 	}
 	if err := results.SaveHistory(report); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to save history: %v\n", err)

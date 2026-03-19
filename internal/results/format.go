@@ -32,14 +32,14 @@ func FormatTable(w io.Writer, report *Report) {
 	fmt.Fprintf(w, "  Time:   %s\n\n", Dim(report.Timestamp.Format(time.RFC3339)))
 
 	for _, r := range report.Results {
-		formatTestResult(w, r)
+		FormatTestResult(w, r)
 		fmt.Fprintln(w)
 	}
 
 	fmt.Fprintf(w, "%s\n", Header(fmt.Sprintf("Overall: %s", ColorGrade(report.OverallGrade))))
 }
 
-func formatTestResult(w io.Writer, r TestResult) {
+func FormatTestResult(w io.Writer, r TestResult) {
 	switch r.Test {
 	case "latency":
 		formatLatency(w, r)
