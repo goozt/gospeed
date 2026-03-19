@@ -21,6 +21,7 @@ type Config struct {
 	JSON      bool
 	CSV       bool
 	History   bool
+	Ping      bool
 	TLS       bool
 	TLSSkip   bool
 	Streams   int
@@ -57,6 +58,29 @@ func (c *Client) Run(ctx context.Context) error {
 			c.conn.SetDeadline(time.Now())
 		}
 	}()
+
+	if c.cfg.Ping {
+		const maxRetries = 5
+		for attempt := range maxRetries {
+			err := c.connect(ctx)
+			if err == nil {
+				fmt.Printf("OK — server %s is reachable (session %s)\n", c.cfg.Server, c.sessID)
+				c.close()
+				return nil
+			}
+			c.close()
+			if attempt < maxRetries-1 {
+				fmt.Fprintf(os.Stderr, "ping attempt %d/%d failed: %v\n", attempt+1, maxRetries, err)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(2 * time.Second):
+				}
+			} else {
+				return fmt.Errorf("ping failed after %d attempts: %w", maxRetries, err)
+			}
+		}
+	}
 
 	if err := c.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)

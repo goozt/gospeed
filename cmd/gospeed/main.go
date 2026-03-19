@@ -29,6 +29,7 @@ func main() {
 	flag.BoolVar(showVersion, "v", false, "print version and exit")
 
 	// Individual test flags.
+	doPing := flag.Bool("ping", false, "check if server is reachable and exit")
 	doLatency := flag.Bool("latency", false, "run latency test")
 	doMTU := flag.Bool("mtu", false, "run path MTU discovery")
 	doTCP := flag.Bool("tcp", false, "run TCP throughput test")
@@ -105,6 +106,7 @@ func main() {
 		JSON:     *jsonOut,
 		CSV:      *csvOut,
 		History:  *history,
+		Ping:     *doPing,
 		TLS:      *useTLS,
 		TLSSkip:  *tlsSkip,
 		Streams:  *streams,
