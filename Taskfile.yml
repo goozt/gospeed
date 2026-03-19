@@ -19,6 +19,12 @@ tasks:
       - go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed ./cmd/gospeed
       - go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed-server ./cmd/gospeed-server
 
+  build-linux:
+    desc: Build Linux binaries
+    cmds:
+      - GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed ./cmd/gospeed
+      - GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="{{.LDFLAGS}}" -o bin/gospeed-server ./cmd/gospeed-server
+
   test:
     desc: Run tests with race detector
     cmds:
