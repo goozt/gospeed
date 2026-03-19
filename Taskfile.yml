@@ -43,6 +43,12 @@ tasks:
     cmds:
       - docker build -t gospeed-server .
 
+  bump:
+    desc: Bump version (e.g. "patch", "minor", "major")
+    cmds:
+      - git tag -a v{{.VERSION}} -m "Release v{{.VERSION}}"
+      - git push origin v{{.VERSION}}
+
   release-snapshot:
     desc: Test GoReleaser locally
     cmds:
