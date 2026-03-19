@@ -1,5 +1,12 @@
 # gospeed
 
+[![CI](https://github.com/goozt/gospeed/actions/workflows/ci.yml/badge.svg)](https://github.com/goozt/gospeed/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/goozt/gospeed/branch/main/graph/badge.svg)](https://codecov.io/gh/goozt/gospeed)
+[![Go Report Card](https://goreportcard.com/badge/github.com/goozt/gospeed)](https://goreportcard.com/report/github.com/goozt/gospeed)
+[![Go Reference](https://pkg.go.dev/badge/github.com/goozt/gospeed.svg)](https://pkg.go.dev/github.com/goozt/gospeed)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/goozt/gospeed)](https://github.com/goozt/gospeed/releases/latest)
+
 A fast, zero-dependency network speed testing tool written in Go. Client-server architecture for accurate network performance measurement.
 
 ## Features
@@ -195,11 +202,11 @@ Test flags:
 ## Architecture
 
 ```
-┌─────────────┐     Control (TCP, JSON-framed)      ┌──────────────┐
-│   gospeed   │◄────────────────────────────────────►│ gospeed-     │
-│   (client)  │     Data (TCP/UDP streams)           │   server     │
-│             │◄────────────────────────────────────►│              │
-└─────────────┘                                      └──────────────┘
+┌─────────────┐     Control (TCP, JSON-framed)       ┌────────────────┐
+│   gospeed   │◄────────────────────────────────────►│ gospeed-server │
+│   (client)  │      Data (TCP/UDP streams)          │    (server)    │
+│             │◄────────────────────────────────────►│                │
+└─────────────┘                                      └────────────────┘
 ```
 
 - **Control channel**: Length-prefixed JSON over TCP for handshake, test negotiation, and results
