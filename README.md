@@ -65,7 +65,7 @@ docker compose up -d
 gospeed-server
 
 # Custom address
-gospeed-server -addr :8080
+gospeed-server --addr :8080
 
 # With TLS (self-signed, auto-generated)
 gospeed-server --tls-self-signed
@@ -112,12 +112,12 @@ gospeed
 
 ```sh
 # Run specific tests
-gospeed -s host:9000 -latency
-gospeed -s host:9000 -tcp -udp
-gospeed -s host:9000 -bufferbloat
+gospeed -s host:9000 --latency
+gospeed -s host:9000 --tcp --udp
+gospeed -s host:9000 --bufferbloat
 
 # Run all tests
-gospeed -s host:9000 -all
+gospeed -s host:9000 --all
 
 # Default test suite (when no test flags given):
 # MTU → Latency → TCP Throughput → Bufferbloat → UDP+Loss → Jitter
@@ -141,13 +141,14 @@ gospeed --history
 ```
 -s, --server string   Server address (host:port)
 -t, --streams int     Number of parallel streams (default 4)
--d  --duration int    Test duration in seconds (default 10)
+-d, --duration int    Test duration in seconds (default 10)
 -h, --history         Show previous results with trends
 -v, --version         Print version and exit
     --json            Output as JSON
     --csv             Output as CSV
     --tls             Use TLS connection
     --tls-skip-verify Skip TLS certificate verification
+    --ping            Ping server before tests to check connectivity and exits
 
 Test flags:
     --latency         Unloaded latency (RTT)
