@@ -27,6 +27,54 @@ func GradeLatency(avgMs float64) Grade {
 	}
 }
 
+// GradeConnect returns a grade based on average TCP connect time in ms.
+func GradeConnect(avgMs float64) Grade {
+	switch {
+	case avgMs < 50:
+		return GradeA
+	case avgMs < 100:
+		return GradeB
+	case avgMs < 200:
+		return GradeC
+	case avgMs < 500:
+		return GradeD
+	default:
+		return GradeF
+	}
+}
+
+// GradeDNS returns a grade based on average DNS resolution time in ms.
+func GradeDNS(avgMs float64) Grade {
+	switch {
+	case avgMs < 10:
+		return GradeA
+	case avgMs < 30:
+		return GradeB
+	case avgMs < 75:
+		return GradeC
+	case avgMs < 200:
+		return GradeD
+	default:
+		return GradeF
+	}
+}
+
+// GradeMTU returns a grade based on path MTU size in bytes.
+func GradeMTU(mtu int) Grade {
+	switch {
+	case mtu >= 1500:
+		return GradeA
+	case mtu >= 1400:
+		return GradeB
+	case mtu >= 1200:
+		return GradeC
+	case mtu >= 576:
+		return GradeD
+	default:
+		return GradeF
+	}
+}
+
 // GradeLoss returns a grade based on packet loss percentage.
 func GradeLoss(pct float64) Grade {
 	switch {

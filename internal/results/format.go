@@ -77,7 +77,7 @@ func formatMTU(w io.Writer, r TestResult) {
 	if !ok {
 		return
 	}
-	fmt.Fprintf(w, "  %s\n", Bold("Path MTU"))
+	fmt.Fprintf(w, "  %s %s\n", Bold("Path MTU"), ColorGrade(r.Grade))
 	fmt.Fprintf(w, "    MTU: %d bytes\n", m.MTU)
 }
 
@@ -137,7 +137,7 @@ func formatDNS(w io.Writer, r TestResult) {
 	if !ok {
 		return
 	}
-	fmt.Fprintf(w, "  %s\n", Bold("DNS Resolution"))
+	fmt.Fprintf(w, "  %s %s\n", Bold("DNS Resolution"), ColorGrade(r.Grade))
 	fmt.Fprintf(w, "    Host: %s\n", m.Host)
 	fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
 }
@@ -147,7 +147,7 @@ func formatConnect(w io.Writer, r TestResult) {
 	if !ok {
 		return
 	}
-	fmt.Fprintf(w, "  %s\n", Bold("TCP Connect Time"))
+	fmt.Fprintf(w, "  %s %s\n", Bold("TCP Connect Time"), ColorGrade(r.Grade))
 	fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
 }
 
@@ -156,7 +156,7 @@ func formatBidir(w io.Writer, r TestResult) {
 	if !ok {
 		return
 	}
-	fmt.Fprintf(w, "  %s\n", Bold("Bidirectional Throughput"))
+	fmt.Fprintf(w, "  %s %s\n", Bold("Bidirectional Throughput"), ColorGrade(r.Grade))
 	fmt.Fprintf(w, "    Upload:   %s\n", formatBPS(m.Upload.BitsPerSec))
 	fmt.Fprintf(w, "    Download: %s\n", formatBPS(m.Download.BitsPerSec))
 }

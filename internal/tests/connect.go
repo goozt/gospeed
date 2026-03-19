@@ -2,8 +2,12 @@ package tests
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"net"
 	"time"
+
+	"github.com/goozt/gospeed/internal/protocol"
 )
 
 // RunConnectClient measures TCP connection setup time (client-side only).
@@ -24,7 +28,23 @@ func RunConnectClient(ctx context.Context, serverAddr string, count int) (*Conne
 		if err != nil {
 			continue
 		}
-		conn.Close()
+		// Send a proper hello+goodbye so the server doesn't log handshake errors.
+		go func(c net.Conn) {
+			defer c.Close()
+			var idBytes [8]byte
+			rand.Read(idBytes[:])
+			clientID := hex.EncodeToString(idBytes[:])
+			if err := protocol.WriteMsg(c, protocol.MsgHello, protocol.Hello{
+				Version:  protocol.ProtocolVersion,
+				ClientID: clientID,
+			}); err != nil {
+				return
+			}
+			if _, err := protocol.ReadMsg(c); err != nil {
+				return
+			}
+			protocol.WriteMsg(c, protocol.MsgGoodbye, protocol.Goodbye{})
+		}(conn)
 		samples = append(samples, elapsed)
 		time.Sleep(100 * time.Millisecond)
 	}

@@ -310,7 +310,10 @@ func (c *Client) dispatchTest(ctx context.Context, t protocol.TestType) (any, re
 		return m, results.GradeLatency(m.Avg), nil
 	case protocol.TestMTU:
 		m, e := tests.RunMTUClient(ctx, c.conn, c.cfg.Server)
-		return m, "", e
+		if e != nil {
+			return nil, "", e
+		}
+		return m, results.GradeMTU(m.MTU), nil
 	case protocol.TestTCP:
 		return c.runTCPTest(ctx)
 	case protocol.TestUDP:
@@ -326,15 +329,25 @@ func (c *Client) dispatchTest(ctx context.Context, t protocol.TestType) (any, re
 	case protocol.TestDNS:
 		host, _, _ := net.SplitHostPort(c.cfg.Server)
 		m, e := tests.RunDNSClient(ctx, host, 10)
-		return m, "", e
+		if e != nil {
+			return nil, "", e
+		}
+		return m, results.GradeDNS(m.Avg), nil
 	case protocol.TestConnect:
 		m, e := tests.RunConnectClient(ctx, c.cfg.Server, 10)
-		return m, "", e
+		if e != nil {
+			return nil, "", e
+		}
+		return m, results.GradeConnect(m.Avg), nil
 	case protocol.TestBidir:
 		m, e := tests.RunBidirClient(ctx, c.conn, c.cfg.Server, c.cfg.Streams, c.cfg.Duration, func(dir string, bps float64) {
 			c.progress.Status("Bidir %s: %s", dir, FormatBPS(bps))
 		})
-		return m, "", e
+		if e != nil {
+			return nil, "", e
+		}
+		worse := min(m.Upload.BitsPerSec, m.Download.BitsPerSec)
+		return m, results.GradeThroughput(worse), nil
 	default:
 		return nil, "", fmt.Errorf("unknown test: %s", t)
 	}
