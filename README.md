@@ -1,11 +1,15 @@
-# gospeed
+<p align="center">
+  <img src="docs/assets/gospeed_front_banner.png" alt="gospeed" width="100%">
+</p>
 
-[![CI](https://github.com/goozt/gospeed/actions/workflows/ci.yml/badge.svg)](https://github.com/goozt/gospeed/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/goozt/gospeed/graph/badge.svg?token=1R5W9MDU6Y)](https://codecov.io/gh/goozt/gospeed)
-[![Go Report Card](https://goreportcard.com/badge/github.com/goozt/gospeed)](https://goreportcard.com/report/github.com/goozt/gospeed)
-[![Go Reference](https://pkg.go.dev/badge/github.com/goozt/gospeed.svg)](https://pkg.go.dev/github.com/goozt/gospeed)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/goozt/gospeed)](https://github.com/goozt/gospeed/releases/latest)
+<p align="center">
+  <a href="https://github.com/goozt/gospeed/actions/workflows/ci.yml"><img src="https://github.com/goozt/gospeed/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/goozt/gospeed"><img src="https://codecov.io/gh/goozt/gospeed/graph/badge.svg?token=1R5W9MDU6Y" alt="codecov"></a>
+  <a href="https://goreportcard.com/report/github.com/goozt/gospeed"><img src="https://goreportcard.com/badge/github.com/goozt/gospeed" alt="Go Report Card"></a>
+  <a href="https://pkg.go.dev/github.com/goozt/gospeed"><img src="https://pkg.go.dev/badge/github.com/goozt/gospeed.svg" alt="Go Reference"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/goozt/gospeed/releases/latest"><img src="https://img.shields.io/github/v/release/goozt/gospeed" alt="Release"></a>
+</p>
 
 A fast, zero-dependency network speed testing tool written in Go. Client-server architecture for accurate network performance measurement.
 
@@ -226,6 +230,10 @@ task docker             # Build Docker image
 task release-snapshot   # Test GoReleaser locally
 task bump VERSION=1.2.2 # Tag and push a release
 ```
+
+<p align="center">
+  <img src="docs/assets/gospeed_slogan_banner.png" alt="gospeed — Know Your Network" width="100%">
+</p>
 
 ## License
 
