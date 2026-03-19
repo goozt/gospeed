@@ -19,6 +19,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install dependencies
+        run: go mod download
+
       - name: Vet
         run: go vet ./...
 
@@ -28,14 +31,13 @@ jobs:
 
       - name: Test with coverage
         if: matrix.os == 'ubuntu-latest'
-        run: go test -race -timeout 120s -coverprofile=coverage.out ./...
+        run: go test -race -timeout 120s -coverprofile=coverage.txt ./...
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.out
 
       - name: Build
         run: |

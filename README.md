@@ -1,7 +1,7 @@
 # gospeed
 
 [![CI](https://github.com/goozt/gospeed/actions/workflows/ci.yml/badge.svg)](https://github.com/goozt/gospeed/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/goozt/gospeed/branch/main/graph/badge.svg)](https://codecov.io/gh/goozt/gospeed)
+[![codecov](https://codecov.io/gh/goozt/gospeed/graph/badge.svg?token=1R5W9MDU6Y)](https://codecov.io/gh/goozt/gospeed)
 [![Go Report Card](https://goreportcard.com/badge/github.com/goozt/gospeed)](https://goreportcard.com/report/github.com/goozt/gospeed)
 [![Go Reference](https://pkg.go.dev/badge/github.com/goozt/gospeed.svg)](https://pkg.go.dev/github.com/goozt/gospeed)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
