@@ -49,9 +49,32 @@ tasks:
     cmds:
       - docker build -t gospeed-server .
 
+  dev-init:
+    desc: Initialize development environment
+    cmds:
+      - go mod tidy
+      - go install github.com/gordonklaus/ineffassign@latest
+      - go install github.com/client9/misspell/cmd/misspell@latest
+      - go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+      - go install github.com/go-task/task/v3/cmd/task@latest
+      - go install github.com/goreleaser/goreleaser/v2@latest
+
+  bump-ready:
+    desc: Check if code is ready for version bump
+    deps:
+      - vet
+      - test
+      - build
+    cmds:
+      - gofmt -l -s .
+      - gocyclo -over 15 ./...
+      - ineffassign ./...
+      - misspell -error .
+
   bump:
     desc: Bump version (e.g. "patch", "minor", "major")
     cmds:
+      - gocyclo -over 15 ./...
       - git tag -a v{{.VERSION}} -m "Release v{{.VERSION}}"
       - git push origin v{{.VERSION}}
 
