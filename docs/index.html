@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>gospeed — Fast, Zero-Dependency Network Speed Testing</title>
   <meta name="description" content="A fast, zero-dependency network speed testing tool written in Go. 9 test types, quality grades, cross-platform.">
+  <meta name="darkreader-lock">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -164,17 +165,37 @@
     .cross { color: var(--red); }
 
     /* Install */
-    .install-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .install-group { margin-bottom: 40px; }
+    .install-group h3 {
+      font-size: 1.2rem; font-weight: 700; margin-bottom: 20px;
+      color: var(--text); display: flex; align-items: center; gap: 10px;
+    }
+    .install-group h3 .label {
+      font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+      background: rgba(56,189,248,0.15); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .install-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px; }
     .install-card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
     }
-    .install-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+    .install-card h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: var(--text); }
     .install-card pre {
       background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px;
       padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
-      overflow-x: auto; color: var(--text-muted);
+      overflow-x: auto; color: var(--text-muted); position: relative;
     }
     .install-card pre .cmd { color: var(--text); }
+    .copy-wrap { position: relative; }
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: var(--border); border: none; border-radius: 6px;
+      padding: 5px 10px; cursor: pointer; color: var(--text-muted);
+      font-size: 0.72rem; font-family: 'Inter', sans-serif; font-weight: 500;
+      transition: all .2s; opacity: 0; z-index: 1;
+    }
+    .copy-wrap:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: var(--accent); color: var(--bg); }
+    .copy-btn.copied { background: var(--green); color: var(--bg); opacity: 1; }
 
     /* Docs */
     .docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
@@ -228,6 +249,11 @@
       text-align: center; color: var(--text-muted); font-size: 0.85rem;
     }
     footer a { color: var(--accent); text-decoration: none; }
+
+    /* Utility */
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
 
     /* Responsive */
     @media (max-width: 640px) {
@@ -425,22 +451,75 @@
 
 <section id="install" style="background: rgba(17,24,39,0.5);">
   <div class="container">
-    <h2>Installation</h2>
+    <h2 class="flex items-center justify-between"><span>Installation</span><a href="https://github.com/goozt/gospeed/releases" class="btn btn-primary">Download Latest Binary</a></h2>
     <p class="subtitle">Get running in under a minute.</p>
-    <div class="install-methods">
-      <div class="install-card">
-        <h3>Binary Download</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;">Pre-built binaries for all platforms.</p>
-        <a href="https://github.com/goozt/gospeed/releases" class="btn btn-primary" style="width: 100%; justify-content: center;">Download Latest Release</a>
+
+    <div class="install-group">
+      <h3>Client <span class="label">gospeed</span></h3>
+      <div class="install-methods">
+        <div class="install-card">
+          <h4>Linux / macOS / FreeBSD</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">curl -fsSL https://gospeed.goozt.org/install.sh | bash</span></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h4>Windows (PowerShell)</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">irm https://gospeed.goozt.org/install.ps1 | iex</span></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h4>Go Install</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">go install github.com/goozt/gospeed/cmd/gospeed@latest</span></pre>
+          </div>
+        </div>
       </div>
-      <div class="install-card">
-        <h3>Go Install</h3>
-        <pre><span class="cmd">go install github.com/goozt/gospeed/cmd/gospeed@latest
-go install github.com/goozt/gospeed/cmd/gospeed-server@latest</span></pre>
+    </div>
+
+    <div class="install-group">
+      <h3>Server <span class="label">gospeed-server</span></h3>
+      <div class="install-methods">
+        <div class="install-card">
+          <h4>Linux / macOS / FreeBSD</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">curl -fsSL https://gospeed.goozt.org/install.sh | bash -s -- --server</span></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h4>Windows (PowerShell)</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">irm https://gospeed.goozt.org/install-server.ps1 | iex</span></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h4>Go Install</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">go install github.com/goozt/gospeed/cmd/gospeed-server@latest</span></pre>
+          </div>
+        </div>
       </div>
-      <div class="install-card">
-        <h3>Docker (Server)</h3>
-        <pre><span class="cmd">docker compose up -d</span></pre>
+    </div>
+
+    <div class="install-group">
+      <h3>Docker <span class="label">Server</span></h3>
+      <div class="install-methods">
+        <div class="install-card">
+          <h4>Quick Start</h4>
+          <div class="copy-wrap">
+            <button class="copy-btn" onclick="copyCmd(this)">Copy</button>
+            <pre><span class="cmd">git clone https://github.com/goozt/gospeed.git
+cd gospeed
+docker compose up -d</span></pre>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -722,5 +801,16 @@ gospeed</code>
   </div>
 </footer>
 
+<script>
+function copyCmd(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  const text = pre.innerText.replace(/^\$ /gm, '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
 </body>
 </html>

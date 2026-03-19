@@ -17,6 +17,21 @@ A fast, zero-dependency network speed testing tool written in Go. Client-server 
 
 ## Installation
 
+### Quick install
+
+```sh
+# Linux / macOS / FreeBSD
+curl -fsSL https://gospeed.goozt.org/install.sh | bash
+
+# Include server binary
+curl -fsSL https://gospeed.goozt.org/install.sh | bash -s -- --server
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://gospeed.goozt.org/install.ps1 | iex
+```
+
 ### Binary download
 
 Download pre-built binaries from the [releases page](https://github.com/goozt/gospeed/releases).
