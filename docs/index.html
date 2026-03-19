@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gospeed — Fast, Zero-Dependency Network Speed Testing</title>
+  <meta name="description" content="A fast, zero-dependency network speed testing tool written in Go. 9 test types, quality grades, cross-platform.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --bg-card: #111827;
+      --bg-code: #0d1117;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --green: #4ade80;
+      --yellow: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+      --grade-a: #4ade80;
+      --grade-b: #38bdf8;
+      --grade-c: #facc15;
+      --grade-d: #fb923c;
+      --grade-f: #f87171;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* Nav */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      background: rgba(10, 14, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    nav .logo { font-weight: 800; font-size: 1.25rem; color: var(--accent); text-decoration: none; }
+    nav .links { display: flex; gap: 28px; }
+    nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color .2s; }
+    nav .links a:hover { color: var(--text); }
+
+    /* Hero */
+    .hero {
+      padding: 160px 0 100px;
+      text-align: center;
+      background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(56,189,248,0.08) 0%, transparent 100%);
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { font-size: 1.2rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 36px; }
+    .hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 0.95rem;
+      text-decoration: none; transition: all .2s;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: #7dd3fc; }
+    .btn-secondary { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Terminal */
+    .terminal {
+      max-width: 700px; margin: 48px auto 0;
+      background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; text-align: left;
+    }
+    .terminal-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px; background: #161b22; border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot:nth-child(1) { background: #f87171; }
+    .terminal-dot:nth-child(2) { background: #facc15; }
+    .terminal-dot:nth-child(3) { background: #4ade80; }
+    .terminal-body {
+      padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      line-height: 1.7; overflow-x: auto;
+    }
+    .terminal-body .prompt { color: var(--green); }
+    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .dim { color: var(--text-muted); }
+    .terminal-body .grade-a { color: var(--grade-a); font-weight: 600; }
+    .terminal-body .grade-b { color: var(--grade-b); font-weight: 600; }
+    .terminal-body .val { color: var(--accent); }
+
+    /* Sections */
+    section { padding: 80px 0; }
+    section h2 {
+      font-size: 2rem; font-weight: 700; margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    section .subtitle { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 48px; }
+
+    /* Feature grid */
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .feature {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 28px; transition: border-color .2s;
+    }
+    .feature:hover { border-color: var(--accent); }
+    .feature-icon { font-size: 1.6rem; margin-bottom: 12px; }
+    .feature h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+    .feature p { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Tests table */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: collapse;
+      background: var(--bg-card); border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th, td { padding: 14px 18px; text-align: left; font-size: 0.9rem; }
+    th { background: #161b22; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+    td { border-top: 1px solid var(--border); }
+    tr:hover td { background: rgba(56,189,248,0.03); }
+
+    /* Grades */
+    .grades { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 24px; }
+    .grade-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; text-align: center;
+    }
+    .grade-card h4 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .grade-scale { display: flex; justify-content: center; gap: 6px; }
+    .grade-scale span {
+      width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; color: var(--bg);
+    }
+    .g-a { background: var(--grade-a); }
+    .g-b { background: var(--grade-b); }
+    .g-c { background: var(--grade-c); }
+    .g-d { background: var(--grade-d); }
+    .g-f { background: var(--grade-f); }
+    .grade-info { margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); }
+
+    /* Comparison */
+    .comparison table td:first-child { font-weight: 500; }
+    .check { color: var(--green); }
+    .cross { color: var(--red); }
+
+    /* Install */
+    .install-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .install-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+    }
+    .install-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+    .install-card pre {
+      background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      overflow-x: auto; color: var(--text-muted);
+    }
+    .install-card pre .cmd { color: var(--text); }
+
+    /* Docs */
+    .docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .doc-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+      transition: border-color .2s;
+    }
+    .doc-card:hover { border-color: var(--accent); }
+    .doc-card h3 { font-size: 1rem; margin-bottom: 8px; }
+    .doc-card p { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px; }
+    .doc-card code {
+      display: block; background: var(--bg-code); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);
+    }
+
+    /* Architecture */
+    .arch-diagram {
+      background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px;
+      padding: 32px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      text-align: center; color: var(--text-muted); line-height: 1.5;
+      white-space: pre; overflow-x: auto;
+    }
+
+    /* Changelog */
+    .changelog-list { max-width: 800px; }
+    .changelog-version {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px 28px; margin-bottom: 16px;
+    }
+    .changelog-version h3 {
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .changelog-version h3 .tag {
+      font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: 20px;
+      background: rgba(56,189,248,0.15); color: var(--accent);
+    }
+    .changelog-version h3 .tag-unreleased {
+      background: rgba(250,204,21,0.15); color: var(--yellow);
+    }
+    .changelog-version .date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; }
+    .changelog-version h4 { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 6px; }
+    .changelog-version ul { list-style: none; padding: 0; }
+    .changelog-version li { font-size: 0.9rem; color: var(--text-muted); padding: 3px 0; padding-left: 16px; position: relative; }
+    .changelog-version li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+
+    /* Footer */
+    footer {
+      padding: 40px 0; border-top: 1px solid var(--border);
+      text-align: center; color: var(--text-muted); font-size: 0.85rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero { padding: 130px 0 60px; }
+      section { padding: 60px 0; }
+      nav .links { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="#" class="logo">gospeed</a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#tests">Tests</a>
+      <a href="#install">Install</a>
+      <a href="#docs">Docs</a>
+      <a href="#changelog">Changelog</a>
+      <a href="https://github.com/goozt/gospeed">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <h1>Network speed testing,<br><span>done right.</span></h1>
+    <p>A fast, zero-dependency network speed testing tool written in Go. 9 test types, A-F quality grades, cross-platform.</p>
+    <div class="hero-actions">
+      <a href="#install" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/goozt/gospeed" class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">$</span> <span class="cmd">gospeed -s speed.example.com -a</span>
+<br>
+<br><span class="dim">  Test              Result              Grade</span>
+<br><span class="dim">  ──────────────────────────────────────────────</span>
+<br>  Path MTU          <span class="val">1500 bytes</span>          <span class="grade-a">A</span>
+<br>  Latency           <span class="val">12.4 ms</span> avg         <span class="grade-a">A</span>
+<br>  TCP Throughput     <span class="val">847.2 Mbps</span> down     <span class="grade-a">A</span>
+<br>  Bufferbloat        <span class="val">523 RPM</span>             <span class="grade-a">A</span>
+<br>  UDP Throughput     <span class="val">412.8 Mbps</span>          <span class="grade-a">A</span>
+<br>  Packet Loss        <span class="val">0.02%</span>               <span class="grade-a">A</span>
+<br>  Jitter             <span class="val">1.8 ms</span>              <span class="grade-a">A</span>
+<br>  DNS Resolution     <span class="val">8.2 ms</span>              <span class="grade-a">A</span>
+<br>  TCP Connect        <span class="val">14.1 ms</span>             <span class="grade-a">A</span>
+<br>  Bidirectional      <span class="val">821/834 Mbps</span>        <span class="grade-a">A</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="container">
+    <h2>Why gospeed?</h2>
+    <p class="subtitle">Built for engineers who need accurate, repeatable network measurements.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">0</div>
+        <h3>Zero Dependencies</h3>
+        <p>Pure Go standard library. No external packages. Single binary, drop it anywhere.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">9</div>
+        <h3>9 Test Types</h3>
+        <p>TCP/UDP throughput, latency, jitter, bufferbloat (RPM), path MTU, DNS, TCP connect, bidirectional.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">A</div>
+        <h3>Quality Grades</h3>
+        <p>A-F letter grades for every metric with color-coded terminal output. Know your network quality at a glance.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">{}</div>
+        <h3>Multiple Output Formats</h3>
+        <p>Table, JSON, and CSV output. Pipe to jq, import to spreadsheets, or feed your monitoring stack.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">&gt;_</div>
+        <h3>Cross-Platform</h3>
+        <p>Native support for Windows, macOS, Linux, and FreeBSD. No Cygwin, no WSL, no compromises.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">//</div>
+        <h3>Multi-Client Server</h3>
+        <p>Concurrent client support out of the box. Unlike iperf3, multiple users can test simultaneously.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">~</div>
+        <h3>Test History &amp; Trends</h3>
+        <p>Local JSONL storage tracks results over time. See how your network performance changes with <code>--history</code>.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">RFC</div>
+        <h3>Scientifically Grounded</h3>
+        <p>Based on RFC 6349, RFC 2544, ITU-T Y.1564. BDP-aware TCP buffers, RFC 3550 jitter calculation.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">TLS</div>
+        <h3>Flexible TLS</h3>
+        <p>Three TLS modes: auto-generated self-signed, your own certificates, or Let's Encrypt ACME with auto-renewal.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tests" style="background: rgba(17,24,39,0.5);">
+  <div class="container">
+    <h2>Test Suite</h2>
+    <p class="subtitle">Comprehensive network diagnostics in a single run.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Test</th><th>Protocol</th><th>What it measures</th><th>Key metric</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Latency</td><td>TCP</td><td>Round-trip time (20 samples)</td><td>min/avg/p95/max ms</td></tr>
+          <tr><td>Path MTU</td><td>UDP (DF bit)</td><td>Path Maximum Transmission Unit</td><td>bytes</td></tr>
+          <tr><td>TCP Throughput</td><td>TCP</td><td>Bandwidth with BDP-aware buffers</td><td>Mbps / Gbps</td></tr>
+          <tr><td>UDP Throughput</td><td>UDP</td><td>Bandwidth + packet loss + reordering</td><td>Mbps, loss %</td></tr>
+          <tr><td>Jitter</td><td>UDP</td><td>Inter-packet delay variation (RFC 3550)</td><td>ms</td></tr>
+          <tr><td>Bufferbloat</td><td>TCP + UDP</td><td>Latency under load &rarr; responsiveness</td><td>RPM</td></tr>
+          <tr><td>DNS</td><td>UDP/53</td><td>DNS resolution latency</td><td>ms</td></tr>
+          <tr><td>TCP Connect</td><td>TCP</td><td>SYN &rarr; established handshake time</td><td>ms</td></tr>
+          <tr><td>Bidirectional</td><td>TCP</td><td>Simultaneous upload + download</td><td>Mbps each</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top: 64px;">Grading System</h2>
+    <p class="subtitle">Every metric gets a letter grade so you can quickly assess quality.</p>
+    <div class="grades">
+      <div class="grade-card">
+        <h4>Latency</h4>
+        <div class="grade-scale"><span class="g-a">A</span><span class="g-b">B</span><span class="g-c">C</span><span class="g-d">D</span><span class="g-f">F</span></div>
+        <div class="grade-info">&lt;20ms &middot; &lt;50ms &middot; &lt;100ms &middot; &lt;200ms &middot; &ge;200ms</div>
+      </div>
+      <div class="grade-card">
+        <h4>Packet Loss</h4>
+        <div class="grade-scale"><span class="g-a">A</span><span class="g-b">B</span><span class="g-c">C</span><span class="g-d">D</span><span class="g-f">F</span></div>
+        <div class="grade-info">&lt;0.1% &middot; &lt;0.5% &middot; &lt;1% &middot; &lt;2.5% &middot; &ge;2.5%</div>
+      </div>
+      <div class="grade-card">
+        <h4>Jitter</h4>
+        <div class="grade-scale"><span class="g-a">A</span><span class="g-b">B</span><span class="g-c">C</span><span class="g-d">D</span><span class="g-f">F</span></div>
+        <div class="grade-info">&lt;5ms &middot; &lt;10ms &middot; &lt;20ms &middot; &lt;50ms &middot; &ge;50ms</div>
+      </div>
+      <div class="grade-card">
+        <h4>Bufferbloat (RPM)</h4>
+        <div class="grade-scale"><span class="g-a">A</span><span class="g-b">B</span><span class="g-c">C</span><span class="g-d">D</span><span class="g-f">F</span></div>
+        <div class="grade-info">&ge;400 &middot; &ge;200 &middot; &ge;100 &middot; &ge;50 &middot; &lt;50</div>
+      </div>
+      <div class="grade-card">
+        <h4>Throughput</h4>
+        <div class="grade-scale"><span class="g-a">A</span><span class="g-b">B</span><span class="g-c">C</span><span class="g-d">D</span><span class="g-f">F</span></div>
+        <div class="grade-info">&ge;100 &middot; &ge;50 &middot; &ge;25 &middot; &ge;10 &middot; &lt;10 Mbps</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="comparison">
+  <div class="container">
+    <h2>gospeed vs iperf3</h2>
+    <p class="subtitle">A modern alternative built for real-world network testing.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Feature</th><th>gospeed</th><th>iperf3</th></tr></thead>
+        <tbody>
+          <tr><td>Concurrent clients</td><td class="check">Yes</td><td class="cross">No (one at a time)</td></tr>
+          <tr><td>Windows support</td><td class="check">Native</td><td class="cross">Cygwin-dependent</td></tr>
+          <tr><td>JSON output</td><td class="check">Reliable</td><td class="cross">Broken with parallel/bidir</td></tr>
+          <tr><td>Bufferbloat detection</td><td class="check">Built-in (RPM)</td><td class="cross">Not available</td></tr>
+          <tr><td>Unified metrics</td><td class="check">Single run</td><td class="cross">Separate tools needed</td></tr>
+          <tr><td>Quality grading</td><td class="check">A-F grades</td><td class="cross">Raw numbers only</td></tr>
+          <tr><td>Test history</td><td class="check">Built-in trends</td><td class="cross">Not available</td></tr>
+          <tr><td>NAT-friendly</td><td class="check">All client-initiated</td><td class="cross">Requires reverse mode</td></tr>
+          <tr><td>Dependencies</td><td class="check">Zero</td><td class="cross">libssl, etc.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="install" style="background: rgba(17,24,39,0.5);">
+  <div class="container">
+    <h2>Installation</h2>
+    <p class="subtitle">Get running in under a minute.</p>
+    <div class="install-methods">
+      <div class="install-card">
+        <h3>Binary Download</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;">Pre-built binaries for all platforms.</p>
+        <a href="https://github.com/goozt/gospeed/releases" class="btn btn-primary" style="width: 100%; justify-content: center;">Download Latest Release</a>
+      </div>
+      <div class="install-card">
+        <h3>Go Install</h3>
+        <pre><span class="cmd">go install github.com/goozt/gospeed/cmd/gospeed@latest
+go install github.com/goozt/gospeed/cmd/gospeed-server@latest</span></pre>
+      </div>
+      <div class="install-card">
+        <h3>Docker (Server)</h3>
+        <pre><span class="cmd">docker compose up -d</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="container">
+    <h2>Quick Reference</h2>
+    <p class="subtitle">Common usage patterns to get you started.</p>
+    <div class="docs-grid">
+      <div class="doc-card">
+        <h3>Start the Server</h3>
+        <p>Listen on default port 9000.</p>
+        <code>gospeed-server</code>
+      </div>
+      <div class="doc-card">
+        <h3>Run All Tests</h3>
+        <p>Full test suite against a remote server.</p>
+        <code>gospeed -s host:9000 -a</code>
+      </div>
+      <div class="doc-card">
+        <h3>Specific Tests</h3>
+        <p>Run only the tests you need.</p>
+        <code>gospeed -s host:9000 --latency --tcp</code>
+      </div>
+      <div class="doc-card">
+        <h3>JSON Output</h3>
+        <p>Machine-readable output for scripting.</p>
+        <code>gospeed -s host:9000 --json | jq .</code>
+      </div>
+      <div class="doc-card">
+        <h3>View History</h3>
+        <p>See past results with trend indicators.</p>
+        <code>gospeed --history</code>
+      </div>
+      <div class="doc-card">
+        <h3>TLS Connection</h3>
+        <p>Encrypted testing over untrusted networks.</p>
+        <code>gospeed -s host:9000 --tls</code>
+      </div>
+      <div class="doc-card">
+        <h3>Custom Streams</h3>
+        <p>Adjust parallel streams for throughput tests.</p>
+        <code>gospeed -s host:9000 -t 8</code>
+      </div>
+      <div class="doc-card">
+        <h3>Environment Variable</h3>
+        <p>Set server address once.</p>
+        <code>export GOSPEED_SERVER_ADDR=host:9000
+gospeed</code>
+      </div>
+      <div class="doc-card">
+        <h3>Server with Self-Signed TLS</h3>
+        <p>Quick encrypted server, no cert files needed.</p>
+        <code>gospeed-server --tls-self-signed</code>
+      </div>
+      <div class="doc-card">
+        <h3>Server with Own Cert</h3>
+        <p>Use your own TLS certificate.</p>
+        <code>gospeed-server --tls-cert cert.pem --tls-key key.pem</code>
+      </div>
+      <div class="doc-card">
+        <h3>Server with Let's Encrypt</h3>
+        <p>Auto-provisioned ACME certificate.</p>
+        <code>gospeed-server --tls-acme --domain speed.example.com --email you@example.com</code>
+      </div>
+    </div>
+
+    <h2 style="margin-top: 64px;">Architecture</h2>
+    <p class="subtitle">Client-server model with dedicated control and data channels.</p>
+    
+    <div class="arch-diagram" style="display: flex; align-items: center; justify-content: center; white-space: normal; padding: 40px 32px;">
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(client)</div>
+      </div>
+      <div style="flex-grow: 1; margin: 0 20px; position: relative; height: 70px; max-width: 400px; min-width: 200px;">
+        <div style="border-top: 2px dashed #8b949e; width: 100%; position: absolute; top: 50%; margin-top: -14px; text-align: center;">
+          <span style="background: #0d1117; padding: 0 10px; font-size: 0.75rem; color: #8b949e; position: relative; top: -10px;">Control (TCP, JSON-framed)</span>
+        </div>
+        <div style="border-top: 3px solid #38bdf8; width: 100%; position: absolute; top: 50%; margin-top: 14px; text-align: center;">
+          <span style="background: #0d1117; padding: 0 10px; font-size: 0.75rem; color: #38bdf8; font-weight: 600; position: relative; top: -10px;">Data (TCP/UDP Streams)</span>
+        </div>
+      </div>
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed-server</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(server)</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 64px;">TLS Modes</h3>
+    <p class="subtitle">Two ways to encrypt connections — self-signed for quick setups, ACME for production.</p>
+
+    <!-- TLS Self-Signed -->
+    <div style="margin-bottom: 16px; font-weight: 600; color: var(--text); font-size: 0.95rem;">Self-Signed Certificate</div>
+    <div class="arch-diagram" style="display: flex; align-items: center; justify-content: center; white-space: normal; padding: 40px 32px;">
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(client)</div>
+        <div style="font-size: 0.7rem; color: #facc15; margin-top: 8px;">--tls --tls-skip-verify</div>
+      </div>
+      <div style="flex-grow: 1; margin: 0 20px; position: relative; height: 70px; max-width: 400px; min-width: 200px;">
+        <div style="border-top: 3px solid #4ade80; width: 100%; position: absolute; top: 50%; margin-top: 0; text-align: center;">
+          <span style="background: #0d1117; padding: 0 10px; font-size: 0.75rem; color: #4ade80; font-weight: 600; position: relative; top: -10px;">TLS (self-signed cert)</span>
+        </div>
+      </div>
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed-server</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(server)</div>
+        <div style="font-size: 0.7rem; color: #facc15; margin-top: 8px;">--tls-self-signed</div>
+      </div>
+    </div>
+
+    <!-- TLS ACME -->
+    <div style="margin-bottom: 16px; margin-top: 32px; font-weight: 600; color: var(--text); font-size: 0.95rem;">Let's Encrypt ACME</div>
+    <div class="arch-diagram" style="display: flex; align-items: center; justify-content: center; white-space: normal; padding: 40px 32px;">
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(client)</div>
+        <div style="font-size: 0.7rem; color: #facc15; margin-top: 8px;">--tls</div>
+      </div>
+      <div style="flex-grow: 1; margin: 0 20px; position: relative; height: 70px; max-width: 400px; min-width: 200px;">
+        <div style="border-top: 3px solid #4ade80; width: 100%; position: absolute; top: 50%; margin-top: 0; text-align: center;">
+          <span style="background: #0d1117; padding: 0 10px; font-size: 0.75rem; color: #4ade80; font-weight: 600; position: relative; top: -10px;">TLS (trusted cert)</span>
+        </div>
+      </div>
+      <div style="text-align: center; background: #21262d; border: 1px solid #30363d; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #f0f6fc; font-size: 1.2rem;">gospeed-server</div>
+        <div style="font-size: 0.8rem; opacity: 0.7;">(server)</div>
+        <div style="font-size: 0.7rem; color: #facc15; margin-top: 8px;">--tls-acme --domain --email</div>
+      </div>
+      <div style="margin: 0 20px; position: relative; height: 70px; min-width: 30px;">
+        <div style="border-left: 2px dashed #818cf8; height: 100%; position: absolute; left: 50%;"></div>
+      </div>
+      <div style="text-align: center; background: #1a1530; border: 1px solid #818cf8; padding: 20px 24px; border-radius: 15px; min-width: 150px;">
+        <div style="font-weight: bold; color: #818cf8; font-size: 1.2rem;">Let's Encrypt</div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">ACME auto-renewal</div>
+      </div>
+    </div>
+
+    <h2 style="margin-top: 64px;">Client CLI Reference</h2>
+    <p class="subtitle">All available client flags and options.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Flag</th><th>Description</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td><code>-s, --server</code></td><td>Server address (host:port)</td><td>localhost:9000</td></tr>
+          <tr><td><code>-t, --streams</code></td><td>Number of parallel streams</td><td>4</td></tr>
+          <tr><td><code>-d, --duration</code></td><td>Test duration in seconds</td><td>10</td></tr>
+          <tr><td><code>-h, --history</code></td><td>Show previous results with trends</td><td>-</td></tr>
+          <tr><td><code>-v, --version</code></td><td>Print version and exit</td><td>-</td></tr>
+          <tr><td><code>--json</code></td><td>Output as JSON</td><td>-</td></tr>
+          <tr><td><code>--csv</code></td><td>Output as CSV</td><td>-</td></tr>
+          <tr><td><code>--tls</code></td><td>Use TLS connection</td><td>-</td></tr>
+          <tr><td><code>--tls-skip-verify</code></td><td>Skip TLS certificate verification</td><td>-</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top: 64px;">Available Tests</h3>
+    <p class="subtitle">Individual test flags to run specific diagnostics.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Flag</th><th>Description</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td><code>--latency</code></td><td>Unloaded latency (RTT)</td><td>-</td></tr>
+          <tr><td><code>--mtu</code></td><td>Path MTU discovery</td><td>-</td></tr>
+          <tr><td><code>--tcp</code></td><td>TCP throughput</td><td>-</td></tr>
+          <tr><td><code>--udp</code></td><td>UDP throughput + packet loss</td><td>-</td></tr>
+          <tr><td><code>--jitter</code></td><td>Jitter measurement</td><td>-</td></tr>
+          <tr><td><code>--bufferbloat</code></td><td>Bufferbloat detection (RPM)</td><td>-</td></tr>
+          <tr><td><code>--dns</code></td><td>DNS resolution latency</td><td>-</td></tr>
+          <tr><td><code>--connect</code></td><td>TCP connection setup time</td><td>-</td></tr>
+          <tr><td><code>--bidir</code></td><td>Bidirectional throughput</td><td>-</td></tr>
+          <tr><td><code>-a, --all</code></td><td>Run all tests</td><td>-</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top: 64px;">Server CLI Reference</h2>
+    <p class="subtitle">All available server flags and options.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Flag</th><th>Description</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td><code>-a, --addr</code></td><td>Listen address (host:port)</td><td>-</td></tr>
+          <tr><td><code>-h, --host</code></td><td>Specific host address</td><td>-</td></tr>
+          <tr><td><code>-p, --port</code></td><td>Listening port</td><td>9000</td></tr>
+          <tr><td><code>-v, --version</code></td><td>Print version and exit</td><td>-</td></tr>
+          <tr><td><code>--tls-cert</code></td><td>TLS certificate file</td><td>-</td></tr>
+          <tr><td><code>--tls-key</code></td><td>TLS key file</td><td>-</td></tr>
+          <tr><td><code>--tls-self-signed</code></td><td>Use auto-generated self-signed certificate</td><td>-</td></tr>
+          <tr><td><code>--tls-acme</code></td><td>Use Let's Encrypt ACME for certificates</td><td>-</td></tr>
+          <tr><td><code>--domain</code></td><td>Domain name for ACME (required with --tls-acme)</td><td>-</td></tr>
+          <tr><td><code>--email</code></td><td>Email for ACME account (required with --tls-acme)</td><td>-</td></tr>
+          <tr><td><code>--cert-dir</code></td><td>Directory to cache ACME certificates</td><td>~/.gospeed/certs</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="changelog" style="background: rgba(17,24,39,0.5);">
+  <div class="container">
+    <h2>Changelog</h2>
+    <p class="subtitle">Version history and notable changes.</p>
+    <div class="changelog-list">
+
+      <div class="changelog-version">
+        <h3><span class="tag tag-unreleased">Unreleased</span></h3>
+        <h4>Added</h4>
+        <ul>
+          <li><code>--ping</code> flag for quick server reachability check with 5 retries</li>
+          <li>Server advertises supported tests in handshake; client skips unsupported tests</li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.1.0 <span class="tag">Latest</span></h3>
+        <div class="date">2026-03-19</div>
+        <h4>Added</h4>
+        <ul>
+          <li>TLS support with self-signed certificates and Let's Encrypt ACME</li>
+          <li>Shorthand flags (<code>-s</code>, <code>-h</code>, <code>-t</code>, <code>-d</code>, <code>-v</code>, <code>-a</code>) for CLI</li>
+          <li>Build info retrieval for version, commit, and date</li>
+        </ul>
+        <h4>Fixed</h4>
+        <ul>
+          <li><code>.gitignore</code> updated to include <code>node_modules</code></li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.0.2</h3>
+        <div class="date">2026-03-19</div>
+        <h4>Fixed</h4>
+        <ul>
+          <li>Archive configuration to use <code>ids</code> instead of <code>builds</code> for correct artifact referencing</li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.0.1</h3>
+        <div class="date">2026-03-19</div>
+        <h4>Added</h4>
+        <ul>
+          <li>Windows ARM architecture support in build configurations</li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.0.0</h3>
+        <div class="date">2026-03-19</div>
+        <h4>Added</h4>
+        <ul>
+          <li>Core speed testing: latency, TCP/UDP throughput, jitter, bufferbloat, MTU discovery, DNS, TCP connect, bidirectional</li>
+          <li>Quality grading system (A-F)</li>
+          <li>JSON and CSV output formats</li>
+          <li>Test history tracking</li>
+          <li>Docker support with UDP</li>
+        </ul>
+        <h4>Changed</h4>
+        <ul>
+          <li>Migrated build tasks from Makefile to Taskfile</li>
+          <li>Improved context handling and error reporting</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p><strong style="color: var(--text);">gospeed</strong> &mdash; MIT License &middot; <a href="https://github.com/goozt/gospeed">GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
