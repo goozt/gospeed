@@ -52,14 +52,18 @@ func handleJitterServer(ctx context.Context, conn net.Conn, params json.RawMessa
 		return nil, fmt.Errorf("expected test_start, got %s", env.Type)
 	}
 
-	// Receive packets and record arrival times.
+	arrivals := receiveJitterPackets(udpConn, p)
+	return computeJitterMetrics(arrivals, p.Count), nil
+}
+
+func receiveJitterPackets(udpConn *net.UDPConn, p protocol.JitterParams) []time.Time {
 	timeout := time.Duration(p.Count*p.IntervalMs+5000) * time.Millisecond
 	udpConn.SetReadDeadline(time.Now().Add(timeout))
 
 	buf := make([]byte, 1500)
 	arrivals := make([]time.Time, 0, p.Count)
 
-	for i := 0; i < p.Count+10; i++ { // extra headroom for missed packets
+	for i := 0; i < p.Count+10; i++ {
 		n, _, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -69,26 +73,27 @@ func handleJitterServer(ctx context.Context, conn net.Conn, params json.RawMessa
 		}
 		arrivals = append(arrivals, time.Now())
 	}
+	return arrivals
+}
 
-	// Compute jitter per RFC 3550: mean of |delta_i - delta_{i-1}|.
+func computeJitterMetrics(arrivals []time.Time, packetsSent int) JitterMetrics {
 	if len(arrivals) < 2 {
-		return JitterMetrics{PacketsRecv: len(arrivals), PacketsSent: p.Count}, nil
+		return JitterMetrics{PacketsRecv: len(arrivals), PacketsSent: packetsSent}
 	}
 
 	deltas := make([]float64, 0, len(arrivals)-1)
 	for i := 1; i < len(arrivals); i++ {
-		d := arrivals[i].Sub(arrivals[i-1]).Seconds() * 1000 // ms
+		d := arrivals[i].Sub(arrivals[i-1]).Seconds() * 1000
 		deltas = append(deltas, d)
 	}
 
 	jitters := make([]float64, 0, len(deltas)-1)
 	for i := 1; i < len(deltas); i++ {
-		j := math.Abs(deltas[i] - deltas[i-1])
-		jitters = append(jitters, j)
+		jitters = append(jitters, math.Abs(deltas[i]-deltas[i-1]))
 	}
 
 	if len(jitters) == 0 {
-		return JitterMetrics{PacketsRecv: len(arrivals), PacketsSent: p.Count}, nil
+		return JitterMetrics{PacketsRecv: len(arrivals), PacketsSent: packetsSent}
 	}
 
 	sum, minJ, maxJ := 0.0, jitters[0], jitters[0]
@@ -116,8 +121,8 @@ func handleJitterServer(ctx context.Context, conn net.Conn, params json.RawMessa
 		MinJitter:   minJ,
 		StdDev:      math.Sqrt(variance),
 		PacketsRecv: len(arrivals),
-		PacketsSent: p.Count,
-	}, nil
+		PacketsSent: packetsSent,
+	}
 }
 
 // RunJitterClient runs the jitter test from the client side.

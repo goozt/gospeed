@@ -249,13 +249,13 @@ func TestSessionContextCancellation(t *testing.T) {
 	})
 	protocol.ReadMsg(clientConn)
 
-	// Cancel context.
+	// Cancel context and close the client conn to unblock ReadMsg.
 	cancel()
+	clientConn.Close()
 
 	select {
 	case err := <-done:
-		// Should return with context error or read error.
-		_ = err
+		_ = err // context error or read error, both acceptable
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout — session didn't respond to context cancellation")
 	}

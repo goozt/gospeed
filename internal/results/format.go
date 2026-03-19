@@ -42,95 +42,123 @@ func FormatTable(w io.Writer, report *Report) {
 func formatTestResult(w io.Writer, r TestResult) {
 	switch r.Test {
 	case "latency":
-		m, ok := r.Metrics.(*tests.LatencyMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s %s\n", Bold("Latency"), ColorGrade(r.Grade))
-		fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
-		fmt.Fprintf(w, "    Median: %.2f ms  P95: %.2f ms  StdDev: %.2f ms\n", m.Median, m.P95, m.StdDev)
-
+		formatLatency(w, r)
 	case "mtu":
-		m, ok := r.Metrics.(*tests.MTUMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s\n", Bold("Path MTU"))
-		fmt.Fprintf(w, "    MTU: %d bytes\n", m.MTU)
-
+		formatMTU(w, r)
 	case "tcp":
-		m, ok := r.Metrics.(*tests.TCPMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s (%s) %s\n", Bold("TCP Throughput"), m.Direction, ColorGrade(r.Grade))
-		fmt.Fprintf(w, "    Speed: %s  (%d streams, %.1fs)\n",
-			formatBPS(m.BitsPerSec), m.Streams, m.Duration)
-
+		formatTCP(w, r)
 	case "udp":
-		m, ok := r.Metrics.(*tests.UDPMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s %s\n", Bold("UDP Throughput"), ColorGrade(r.Grade))
-		fmt.Fprintf(w, "    Speed: %s  Loss: %.2f%% (%d/%d packets)\n",
-			formatBPS(m.BitsPerSec), m.LossPercent, m.PacketsLost, m.PacketsSent)
-		if m.OutOfOrder > 0 {
-			fmt.Fprintf(w, "    Out-of-order: %d packets\n", m.OutOfOrder)
-		}
-
+		formatUDP(w, r)
 	case "jitter":
-		m, ok := r.Metrics.(*tests.JitterMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s %s\n", Bold("Jitter"), ColorGrade(r.Grade))
-		fmt.Fprintf(w, "    Avg: %.2f ms  Min: %.2f ms  Max: %.2f ms  StdDev: %.2f ms\n",
-			m.AvgJitter, m.MinJitter, m.MaxJitter, m.StdDev)
-		fmt.Fprintf(w, "    Packets: %d/%d received\n", m.PacketsRecv, m.PacketsSent)
-
+		formatJitter(w, r)
 	case "bufferbloat":
-		m, ok := r.Metrics.(*tests.BufferbloatMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s %s\n", Bold("Bufferbloat"), ColorGrade(r.Grade))
-		fmt.Fprintf(w, "    Unloaded latency: %.2f ms  Loaded latency: %.2f ms\n",
-			m.UnloadedLatency.Avg, m.LoadedLatency.Avg)
-		rpmStr := fmt.Sprintf("%.0f", m.RPM)
-		if m.RPM >= 999999 {
-			rpmStr = "∞ (unmeasurable)"
-		}
-		fmt.Fprintf(w, "    Latency increase: %.2f ms  RPM: %s\n",
-			m.LatencyIncrease, rpmStr)
-		fmt.Fprintf(w, "    Throughput during test: %s\n", formatBPS(m.Throughput.BitsPerSec))
-
+		formatBufferbloat(w, r)
 	case "dns":
-		m, ok := r.Metrics.(*tests.DNSMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s\n", Bold("DNS Resolution"))
-		fmt.Fprintf(w, "    Host: %s\n", m.Host)
-		fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
-
+		formatDNS(w, r)
 	case "connect":
-		m, ok := r.Metrics.(*tests.ConnectMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s\n", Bold("TCP Connect Time"))
-		fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
-
+		formatConnect(w, r)
 	case "bidir":
-		m, ok := r.Metrics.(*tests.BidirMetrics)
-		if !ok {
-			return
-		}
-		fmt.Fprintf(w, "  %s\n", Bold("Bidirectional Throughput"))
-		fmt.Fprintf(w, "    Upload:   %s\n", formatBPS(m.Upload.BitsPerSec))
-		fmt.Fprintf(w, "    Download: %s\n", formatBPS(m.Download.BitsPerSec))
+		formatBidir(w, r)
 	}
+}
+
+func formatLatency(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.LatencyMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s %s\n", Bold("Latency"), ColorGrade(r.Grade))
+	fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
+	fmt.Fprintf(w, "    Median: %.2f ms  P95: %.2f ms  StdDev: %.2f ms\n", m.Median, m.P95, m.StdDev)
+}
+
+func formatMTU(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.MTUMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s\n", Bold("Path MTU"))
+	fmt.Fprintf(w, "    MTU: %d bytes\n", m.MTU)
+}
+
+func formatTCP(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.TCPMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s (%s) %s\n", Bold("TCP Throughput"), m.Direction, ColorGrade(r.Grade))
+	fmt.Fprintf(w, "    Speed: %s  (%d streams, %.1fs)\n",
+		formatBPS(m.BitsPerSec), m.Streams, m.Duration)
+}
+
+func formatUDP(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.UDPMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s %s\n", Bold("UDP Throughput"), ColorGrade(r.Grade))
+	fmt.Fprintf(w, "    Speed: %s  Loss: %.2f%% (%d/%d packets)\n",
+		formatBPS(m.BitsPerSec), m.LossPercent, m.PacketsLost, m.PacketsSent)
+	if m.OutOfOrder > 0 {
+		fmt.Fprintf(w, "    Out-of-order: %d packets\n", m.OutOfOrder)
+	}
+}
+
+func formatJitter(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.JitterMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s %s\n", Bold("Jitter"), ColorGrade(r.Grade))
+	fmt.Fprintf(w, "    Avg: %.2f ms  Min: %.2f ms  Max: %.2f ms  StdDev: %.2f ms\n",
+		m.AvgJitter, m.MinJitter, m.MaxJitter, m.StdDev)
+	fmt.Fprintf(w, "    Packets: %d/%d received\n", m.PacketsRecv, m.PacketsSent)
+}
+
+func formatBufferbloat(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.BufferbloatMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s %s\n", Bold("Bufferbloat"), ColorGrade(r.Grade))
+	fmt.Fprintf(w, "    Unloaded latency: %.2f ms  Loaded latency: %.2f ms\n",
+		m.UnloadedLatency.Avg, m.LoadedLatency.Avg)
+	rpmStr := fmt.Sprintf("%.0f", m.RPM)
+	if m.RPM >= 999999 {
+		rpmStr = "∞ (unmeasurable)"
+	}
+	fmt.Fprintf(w, "    Latency increase: %.2f ms  RPM: %s\n",
+		m.LatencyIncrease, rpmStr)
+	fmt.Fprintf(w, "    Throughput during test: %s\n", formatBPS(m.Throughput.BitsPerSec))
+}
+
+func formatDNS(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.DNSMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s\n", Bold("DNS Resolution"))
+	fmt.Fprintf(w, "    Host: %s\n", m.Host)
+	fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
+}
+
+func formatConnect(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.ConnectMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s\n", Bold("TCP Connect Time"))
+	fmt.Fprintf(w, "    Min: %.2f ms  Avg: %.2f ms  Max: %.2f ms\n", m.Min, m.Avg, m.Max)
+}
+
+func formatBidir(w io.Writer, r TestResult) {
+	m, ok := r.Metrics.(*tests.BidirMetrics)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, "  %s\n", Bold("Bidirectional Throughput"))
+	fmt.Fprintf(w, "    Upload:   %s\n", formatBPS(m.Upload.BitsPerSec))
+	fmt.Fprintf(w, "    Download: %s\n", formatBPS(m.Download.BitsPerSec))
 }
 
 // FormatJSON writes results as JSON to w.

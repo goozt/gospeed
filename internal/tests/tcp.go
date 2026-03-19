@@ -31,7 +31,6 @@ func handleTCPServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		p.Streams = 4
 	}
 
-	// Open a TCP listener for data streams.
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return nil, err
@@ -43,7 +42,6 @@ func handleTCPServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		return nil, err
 	}
 
-	// Wait for test_start signal.
 	env, err := protocol.ReadMsg(conn)
 	if err != nil {
 		return nil, err
@@ -57,53 +55,17 @@ func handleTCPServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 	var totalBytes atomic.Int64
 	var wg sync.WaitGroup
 
-	if p.Reverse {
-		// Server sends data to client.
-		for i := 0; i < p.Streams; i++ {
-			dataConn, err := ln.Accept()
-			if err != nil {
-				break
-			}
-			platform.TuneConn(dataConn, 0)
-			wg.Add(1)
-			go func(dc net.Conn) {
-				defer wg.Done()
-				defer dc.Close()
-				buf := make([]byte, 128*1024)
-				for time.Now().Before(deadline) {
-					dc.SetWriteDeadline(deadline)
-					n, err := dc.Write(buf)
-					if err != nil {
-						break
-					}
-					totalBytes.Add(int64(n))
-				}
-			}(dataConn)
+	for i := 0; i < p.Streams; i++ {
+		dataConn, err := ln.Accept()
+		if err != nil {
+			break
 		}
-	} else {
-		// Server receives data from client.
-		for i := 0; i < p.Streams; i++ {
-			dataConn, err := ln.Accept()
-			if err != nil {
-				break
-			}
-			platform.TuneConn(dataConn, 0)
-			wg.Add(1)
-			go func(dc net.Conn) {
-				defer wg.Done()
-				defer dc.Close()
-				buf := make([]byte, 128*1024)
-				for {
-					dc.SetReadDeadline(deadline.Add(2 * time.Second))
-					n, err := dc.Read(buf)
-					if n > 0 {
-						totalBytes.Add(int64(n))
-					}
-					if err != nil {
-						break
-					}
-				}
-			}(dataConn)
+		platform.TuneConn(dataConn, 0)
+		wg.Add(1)
+		if p.Reverse {
+			go tcpServerSend(dataConn, deadline, &totalBytes, &wg)
+		} else {
+			go tcpServerRecv(dataConn, deadline, &totalBytes, &wg)
 		}
 	}
 
@@ -118,6 +80,36 @@ func handleTCPServer(ctx context.Context, conn net.Conn, params json.RawMessage)
 		BitsPerSec: float64(total) * 8 / elapsed,
 		Streams:    p.Streams,
 	}, nil
+}
+
+func tcpServerSend(dc net.Conn, deadline time.Time, totalBytes *atomic.Int64, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer dc.Close()
+	buf := make([]byte, 128*1024)
+	for time.Now().Before(deadline) {
+		dc.SetWriteDeadline(deadline)
+		n, err := dc.Write(buf)
+		if err != nil {
+			break
+		}
+		totalBytes.Add(int64(n))
+	}
+}
+
+func tcpServerRecv(dc net.Conn, deadline time.Time, totalBytes *atomic.Int64, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer dc.Close()
+	buf := make([]byte, 128*1024)
+	for {
+		dc.SetReadDeadline(deadline.Add(2 * time.Second))
+		n, err := dc.Read(buf)
+		if n > 0 {
+			totalBytes.Add(int64(n))
+		}
+		if err != nil {
+			break
+		}
+	}
 }
 
 // RunTCPClient runs the TCP throughput test from the client side.
@@ -141,6 +133,48 @@ func RunTCPClient(ctx context.Context, conn net.Conn, serverAddr string, streams
 		return nil, err
 	}
 
+	ready, err := readTestReady(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	host, _, _ := net.SplitHostPort(serverAddr)
+	dataAddr := net.JoinHostPort(host, fmt.Sprintf("%d", ready.DataPort))
+
+	if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
+		return nil, err
+	}
+
+	dur := time.Duration(duration) * time.Second
+	deadline := time.Now().Add(dur)
+	start := time.Now()
+	var totalBytes atomic.Int64
+	var wg sync.WaitGroup
+
+	if err := tcpClientOpenStreams(&wg, &totalBytes, streams, dataAddr, deadline, reverse); err != nil {
+		return nil, err
+	}
+
+	var intervals []IntervalStats
+	go tcpProgressLoop(ctx, &totalBytes, start, deadline, progress, &intervals)
+
+	wg.Wait()
+	elapsed := time.Since(start).Seconds()
+	total := totalBytes.Load()
+
+	protocol.ReadMsg(conn)
+
+	return &TCPMetrics{
+		Direction:  dirString(reverse),
+		Duration:   elapsed,
+		BytesTotal: total,
+		BitsPerSec: float64(total) * 8 / elapsed,
+		Streams:    streams,
+		Intervals:  intervals,
+	}, nil
+}
+
+func readTestReady(conn net.Conn) (*protocol.TestReady, error) {
 	env, err := protocol.ReadMsg(conn)
 	if err != nil {
 		return nil, err
@@ -152,120 +186,56 @@ func RunTCPClient(ctx context.Context, conn net.Conn, serverAddr string, streams
 	}
 	var ready protocol.TestReady
 	protocol.DecodeBody(env, &ready)
+	return &ready, nil
+}
 
-	host, _, _ := net.SplitHostPort(serverAddr)
-	dataAddr := net.JoinHostPort(host, fmt.Sprintf("%d", ready.DataPort))
-
-	// Signal start.
-	if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
-		return nil, err
-	}
-
-	dur := time.Duration(duration) * time.Second
-	deadline := time.Now().Add(dur)
-	start := time.Now()
-	var totalBytes atomic.Int64
-	var wg sync.WaitGroup
-	var intervals []IntervalStats
-
-	if reverse {
-		// Client receives from server.
-		for i := 0; i < streams; i++ {
-			dc, err := net.Dial("tcp", dataAddr)
-			if err != nil {
-				return nil, fmt.Errorf("data stream %d: %w", i, err)
-			}
-			platform.TuneConn(dc, 0)
-			wg.Add(1)
-			go func(c net.Conn) {
-				defer wg.Done()
-				defer c.Close()
-				buf := make([]byte, 128*1024)
-				for {
-					c.SetReadDeadline(deadline.Add(2 * time.Second))
-					n, err := c.Read(buf)
-					if n > 0 {
-						totalBytes.Add(int64(n))
-					}
-					if err != nil {
-						break
-					}
-				}
-			}(dc)
+func tcpClientOpenStreams(wg *sync.WaitGroup, totalBytes *atomic.Int64, streams int, dataAddr string, deadline time.Time, reverse bool) error {
+	for i := 0; i < streams; i++ {
+		dc, err := net.Dial("tcp", dataAddr)
+		if err != nil {
+			return fmt.Errorf("data stream %d: %w", i, err)
 		}
-	} else {
-		// Client sends to server.
-		for i := 0; i < streams; i++ {
-			dc, err := net.Dial("tcp", dataAddr)
-			if err != nil {
-				return nil, fmt.Errorf("data stream %d: %w", i, err)
-			}
-			platform.TuneConn(dc, 0)
-			wg.Add(1)
-			go func(c net.Conn) {
-				defer wg.Done()
-				defer c.Close()
-				buf := make([]byte, 128*1024)
-				for time.Now().Before(deadline) {
-					c.SetWriteDeadline(deadline)
-					n, err := c.Write(buf)
-					if err != nil {
-						break
-					}
-					totalBytes.Add(int64(n))
-				}
-			}(dc)
+		platform.TuneConn(dc, 0)
+		wg.Add(1)
+		if reverse {
+			go tcpServerRecv(dc, deadline, totalBytes, wg)
+		} else {
+			go tcpServerSend(dc, deadline, totalBytes, wg)
 		}
 	}
+	return nil
+}
 
-	// Progress reporting in 1-second intervals.
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		lastBytes := int64(0)
-		intervalStart := 0.0
-		for {
-			select {
-			case <-ticker.C:
-				cur := totalBytes.Load()
-				elapsed := time.Since(start).Seconds()
-				delta := cur - lastBytes
-				bps := float64(delta) * 8 / (elapsed - intervalStart)
-				intervals = append(intervals, IntervalStats{
-					Start:      intervalStart,
-					End:        elapsed,
-					Bytes:      delta,
-					BitsPerSec: bps,
-				})
-				intervalStart = elapsed
-				lastBytes = cur
-				if progress != nil {
-					progress(bps)
-				}
-			case <-ctx.Done():
-				return
+func tcpProgressLoop(ctx context.Context, totalBytes *atomic.Int64, start time.Time, deadline time.Time, progress func(float64), intervals *[]IntervalStats) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	lastBytes := int64(0)
+	intervalStart := 0.0
+	for {
+		select {
+		case <-ticker.C:
+			cur := totalBytes.Load()
+			elapsed := time.Since(start).Seconds()
+			delta := cur - lastBytes
+			bps := float64(delta) * 8 / (elapsed - intervalStart)
+			*intervals = append(*intervals, IntervalStats{
+				Start:      intervalStart,
+				End:        elapsed,
+				Bytes:      delta,
+				BitsPerSec: bps,
+			})
+			intervalStart = elapsed
+			lastBytes = cur
+			if progress != nil {
+				progress(bps)
 			}
-			if time.Now().After(deadline) {
-				return
-			}
+		case <-ctx.Done():
+			return
 		}
-	}()
-
-	wg.Wait()
-	elapsed := time.Since(start).Seconds()
-	total := totalBytes.Load()
-
-	// Read server result.
-	protocol.ReadMsg(conn)
-
-	return &TCPMetrics{
-		Direction:  dirString(reverse),
-		Duration:   elapsed,
-		BytesTotal: total,
-		BitsPerSec: float64(total) * 8 / elapsed,
-		Streams:    streams,
-		Intervals:  intervals,
-	}, nil
+		if time.Now().After(deadline) {
+			return
+		}
+	}
 }
 
 // RunTCPReceiveOnly is used by the server-side to handle reverse mode.

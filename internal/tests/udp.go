@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/goozt/gospeed/internal/protocol"
@@ -113,17 +112,10 @@ func RunUDPClient(ctx context.Context, conn net.Conn, serverAddr string, duratio
 		return nil, err
 	}
 
-	env, err := protocol.ReadMsg(conn)
+	ready, err := readTestReady(conn)
 	if err != nil {
 		return nil, err
 	}
-	if env.Type == protocol.MsgError {
-		var e protocol.ErrorMsg
-		protocol.DecodeBody(env, &e)
-		return nil, &testError{e.Message}
-	}
-	var ready protocol.TestReady
-	protocol.DecodeBody(env, &ready)
 
 	host, _, _ := net.SplitHostPort(serverAddr)
 	udpAddr := fmt.Sprintf("%s:%d", host, ready.DataPort)
@@ -137,63 +129,14 @@ func RunUDPClient(ctx context.Context, conn net.Conn, serverAddr string, duratio
 	}
 	defer udpConn.Close()
 
-	// Signal start.
 	if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
 		return nil, err
 	}
 
-	dur := time.Duration(duration) * time.Second
-	deadline := time.Now().Add(dur)
-	start := time.Now()
-	var packetsSent atomic.Int64
-	var bytesTotal atomic.Int64
+	sent, elapsed := udpSendLoop(ctx, udpConn, duration, packetSize, bandwidth)
 
-	// Calculate inter-packet delay for bandwidth limiting.
-	var delay time.Duration
-	if bandwidth > 0 {
-		packetsPerSec := float64(bandwidth) / 8 / float64(packetSize)
-		delay = time.Duration(float64(time.Second) / packetsPerSec)
-	}
-
-	buf := make([]byte, packetSize)
-	var seq uint64
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			goto done
-		default:
-		}
-
-		EncodeDataHeader(buf, seq)
-		_, err := udpConn.Write(buf)
-		if err != nil {
-			break
-		}
-		seq++
-		packetsSent.Add(1)
-		bytesTotal.Add(int64(packetSize))
-
-		if delay > 0 {
-			time.Sleep(delay)
-		}
-	}
-
-done:
-	elapsed := time.Since(start).Seconds()
-
-	// Read server result.
-	env, err = protocol.ReadMsg(conn)
-	if err != nil {
-		return nil, err
-	}
-	var serverResult UDPMetrics
-	if env.Type == protocol.MsgTestResult {
-		var result protocol.TestResultMsg
-		protocol.DecodeBody(env, &result)
-		json.Unmarshal(result.Metrics, &serverResult)
-	}
-
-	sent := packetsSent.Load()
+	// Read server result and merge.
+	serverResult := readUDPServerResult(conn)
 	serverResult.PacketsSent = sent
 	serverResult.PacketsLost = sent - serverResult.PacketsRecv
 	if sent > 0 {
@@ -204,4 +147,51 @@ done:
 	}
 
 	return &serverResult, nil
+}
+
+func udpSendLoop(ctx context.Context, udpConn *net.UDPConn, duration, packetSize int, bandwidth int64) (int64, float64) {
+	dur := time.Duration(duration) * time.Second
+	deadline := time.Now().Add(dur)
+	start := time.Now()
+
+	var delay time.Duration
+	if bandwidth > 0 {
+		packetsPerSec := float64(bandwidth) / 8 / float64(packetSize)
+		delay = time.Duration(float64(time.Second) / packetsPerSec)
+	}
+
+	buf := make([]byte, packetSize)
+	var seq uint64
+	var sent int64
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return sent, time.Since(start).Seconds()
+		default:
+		}
+		EncodeDataHeader(buf, seq)
+		if _, err := udpConn.Write(buf); err != nil {
+			break
+		}
+		seq++
+		sent++
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+	}
+	return sent, time.Since(start).Seconds()
+}
+
+func readUDPServerResult(conn net.Conn) UDPMetrics {
+	env, err := protocol.ReadMsg(conn)
+	if err != nil {
+		return UDPMetrics{}
+	}
+	var serverResult UDPMetrics
+	if env.Type == protocol.MsgTestResult {
+		var result protocol.TestResultMsg
+		protocol.DecodeBody(env, &result)
+		json.Unmarshal(result.Metrics, &serverResult)
+	}
+	return serverResult
 }

@@ -29,7 +29,6 @@ func handleBufferbloatServer(ctx context.Context, conn net.Conn, params json.Raw
 		p.Streams = 4
 	}
 
-	// Open a TCP listener for throughput streams.
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return nil, err
@@ -41,7 +40,6 @@ func handleBufferbloatServer(ctx context.Context, conn net.Conn, params json.Raw
 		return nil, err
 	}
 
-	// Wait for start.
 	env, err := protocol.ReadMsg(conn)
 	if err != nil {
 		return nil, err
@@ -50,31 +48,34 @@ func handleBufferbloatServer(ctx context.Context, conn net.Conn, params json.Raw
 		return nil, nil
 	}
 
-	duration := time.Duration(p.Duration) * time.Second
-	deadline := time.Now().Add(duration)
+	deadline := time.Now().Add(time.Duration(p.Duration) * time.Second)
 
-	// Accept data connections for throughput load.
-	go func() {
-		for {
-			dc, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go func(c net.Conn) {
-				defer c.Close()
-				buf := make([]byte, 128*1024)
-				for {
-					c.SetReadDeadline(deadline.Add(2 * time.Second))
-					_, err := c.Read(buf)
-					if err != nil {
-						return
-					}
-				}
-			}(dc)
+	go bloatServerAcceptLoop(ln, deadline)
+	bloatServerEchoLoop(conn, deadline)
+
+	return nil, nil
+}
+
+func bloatServerAcceptLoop(ln net.Listener, deadline time.Time) {
+	for {
+		dc, err := ln.Accept()
+		if err != nil {
+			return
 		}
-	}()
+		go func(c net.Conn) {
+			defer c.Close()
+			buf := make([]byte, 128*1024)
+			for {
+				c.SetReadDeadline(deadline.Add(2 * time.Second))
+				if _, err := c.Read(buf); err != nil {
+					return
+				}
+			}
+		}(dc)
+	}
+}
 
-	// Handle latency probes on control connection during the test.
+func bloatServerEchoLoop(conn net.Conn, deadline time.Time) {
 	for time.Now().Before(deadline) {
 		conn.SetReadDeadline(deadline.Add(time.Second))
 		env, err := protocol.ReadMsg(conn)
@@ -82,15 +83,12 @@ func handleBufferbloatServer(ctx context.Context, conn net.Conn, params json.Raw
 			break
 		}
 		if env.Type == protocol.MsgTestStart {
-			// Echo back immediately for latency measurement.
 			protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{})
 		} else if env.Type == protocol.MsgGoodbye {
 			break
 		}
 	}
 	conn.SetReadDeadline(time.Time{})
-
-	return nil, nil // Client computes its own metrics.
 }
 
 // RunBufferbloatClient runs the bufferbloat/responsiveness test from the client side.
@@ -102,9 +100,6 @@ func RunBufferbloatClient(ctx context.Context, conn net.Conn, serverAddr string,
 		streams = 4
 	}
 
-	// Step 1: Run unloaded latency first (reuse latency test separately before this).
-	// We assume the caller has already run latency and passes baseline.
-	// For standalone use, we measure baseline here.
 	if progress != nil {
 		progress("measuring baseline latency...")
 	}
@@ -113,7 +108,6 @@ func RunBufferbloatClient(ctx context.Context, conn net.Conn, serverAddr string,
 		return nil, err
 	}
 
-	// Step 2: Request bufferbloat test.
 	params, _ := json.Marshal(protocol.BufferbloatParams{Duration: duration, Streams: streams})
 	if err := protocol.WriteMsg(conn, protocol.MsgTestReq, protocol.TestRequest{
 		Test:   protocol.TestBufferbloat,
@@ -122,21 +116,13 @@ func RunBufferbloatClient(ctx context.Context, conn net.Conn, serverAddr string,
 		return nil, err
 	}
 
-	env, err := protocol.ReadMsg(conn)
+	ready, err := readTestReady(conn)
 	if err != nil {
 		return nil, err
 	}
-	if env.Type == protocol.MsgError {
-		var e protocol.ErrorMsg
-		protocol.DecodeBody(env, &e)
-		return nil, &testError{e.Message}
-	}
-	var ready protocol.TestReady
-	protocol.DecodeBody(env, &ready)
 
 	host, _, _ := net.SplitHostPort(serverAddr)
 
-	// Signal start.
 	if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
 		return nil, err
 	}
@@ -149,84 +135,23 @@ func RunBufferbloatClient(ctx context.Context, conn net.Conn, serverAddr string,
 	deadline := time.Now().Add(dur)
 	start := time.Now()
 
-	// Start TCP load streams.
 	dataAddr := net.JoinHostPort(host, itoa(ready.DataPort))
 	loadDone := make(chan struct{})
 	var totalBytes int64
-	go func() {
-		defer close(loadDone)
-		conns := make([]net.Conn, 0, streams)
-		for i := 0; i < streams; i++ {
-			dc, err := net.Dial("tcp", dataAddr)
-			if err != nil {
-				continue
-			}
-			conns = append(conns, dc)
-		}
-		defer func() {
-			for _, c := range conns {
-				c.Close()
-			}
-		}()
+	go bloatLoadGenerator(streams, dataAddr, deadline, &totalBytes, loadDone)
 
-		buf := make([]byte, 128*1024)
-		for time.Now().Before(deadline) {
-			for _, c := range conns {
-				c.SetWriteDeadline(deadline)
-				n, err := c.Write(buf)
-				if err != nil {
-					continue
-				}
-				totalBytes += int64(n)
-			}
-		}
-	}()
+	loadedSamples := bloatLatencyProbe(ctx, conn, deadline)
 
-	// Measure latency under load.
-	loadedSamples := make([]float64, 0, 20)
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-
-	// Wait a second for load to ramp up.
-	time.Sleep(time.Second)
-
-	for {
-		select {
-		case <-ticker.C:
-			if time.Now().After(deadline) {
-				goto done
-			}
-			pingStart := time.Now()
-			if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
-				goto done
-			}
-			if _, err := protocol.ReadMsg(conn); err != nil {
-				goto done
-			}
-			rtt := time.Since(pingStart).Seconds() * 1000
-			loadedSamples = append(loadedSamples, rtt)
-		case <-ctx.Done():
-			goto done
-		}
-	}
-
-done:
 	<-loadDone
 	elapsed := time.Since(start).Seconds()
 
-	// Signal end of latency probes.
 	protocol.WriteMsg(conn, protocol.MsgGoodbye, protocol.Goodbye{})
-
-	// Read server result.
 	protocol.ReadMsg(conn)
 
 	loadedLatency := computeLatencyMetrics(loadedSamples)
-	rpm := 0.0
+	rpm := 999999.0
 	if loadedLatency.Avg > 0 {
 		rpm = 60000 / loadedLatency.Avg
-	} else {
-		// Latency too small to measure (e.g. localhost) — no bloat.
-		rpm = 999999
 	}
 
 	return &BufferbloatMetrics{
@@ -242,6 +167,62 @@ done:
 			Streams:    streams,
 		},
 	}, nil
+}
+
+func bloatLoadGenerator(streams int, dataAddr string, deadline time.Time, totalBytes *int64, done chan struct{}) {
+	defer close(done)
+	conns := make([]net.Conn, 0, streams)
+	for i := 0; i < streams; i++ {
+		dc, err := net.Dial("tcp", dataAddr)
+		if err != nil {
+			continue
+		}
+		conns = append(conns, dc)
+	}
+	defer func() {
+		for _, c := range conns {
+			c.Close()
+		}
+	}()
+
+	buf := make([]byte, 128*1024)
+	for time.Now().Before(deadline) {
+		for _, c := range conns {
+			c.SetWriteDeadline(deadline)
+			n, err := c.Write(buf)
+			if err != nil {
+				continue
+			}
+			*totalBytes += int64(n)
+		}
+	}
+}
+
+func bloatLatencyProbe(ctx context.Context, conn net.Conn, deadline time.Time) []float64 {
+	samples := make([]float64, 0, 20)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	time.Sleep(time.Second)
+
+	for {
+		select {
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return samples
+			}
+			pingStart := time.Now()
+			if err := protocol.WriteMsg(conn, protocol.MsgTestStart, protocol.TestStart{}); err != nil {
+				return samples
+			}
+			if _, err := protocol.ReadMsg(conn); err != nil {
+				return samples
+			}
+			samples = append(samples, time.Since(pingStart).Seconds()*1000)
+		case <-ctx.Done():
+			return samples
+		}
+	}
 }
 
 func itoa(i int) string {
