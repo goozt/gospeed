@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.2] - 2026-03-20
+
+### Improved
+- Enhanced grading logic for latency and UDP tests
+
+### Fixed
+- Adjusted UDP bandwidth estimation to round up to nearest 50 Mbps
+- Adjusted timeout multiplier for bufferbloat test to allow extra time for baseline latency phase
+
 ## [v1.3.1] - 2026-03-19
 
 ### Improved
