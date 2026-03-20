@@ -75,6 +75,9 @@ spec:
             initialDelaySeconds: 3
             periodSeconds: 5
           {{- end }}
+          env:
+            - name: GOMAXPROCS
+              value: {{ .Values.gomaxprocs | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
