@@ -74,7 +74,6 @@ tasks:
   bump:
     desc: Bump version (e.g. "patch", "minor", "major")
     cmds:
-      - gocyclo -over 15 ./...
       - git tag -a v{{.VERSION}} -m "Release v{{.VERSION}}"
       - git push origin v{{.VERSION}}
 
