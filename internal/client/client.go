@@ -254,7 +254,11 @@ func (c *Client) runTest(ctx context.Context, t protocol.TestType) (result *resu
 		}
 	}()
 
-	timeout := max(time.Duration(c.cfg.Duration*3)*time.Second, 30*time.Second)
+	mult := 3
+	if t == protocol.TestBufferbloat {
+		mult = 5 // extra time for baseline latency phase
+	}
+	timeout := max(time.Duration(c.cfg.Duration*mult)*time.Second, 30*time.Second)
 	testCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
