@@ -1,0 +1,45 @@
+{
+  "name": "@goozt/gospeed",
+  "version": "1.3.2",
+  "description": "A fast, zero-dependency network speed testing tool written in Go. Client-server architecture for accurate network performance measurement.",
+  "keywords": [
+    "gospeed",
+    "cli",
+    "performance",
+    "network",
+    "speed",
+    "benchmark",
+    "optimization",
+    "speed-test"
+  ],
+  "homepage": "https://gospeed.goozt.org",
+  "bugs": {
+    "url": "https://github.com/goozt/gospeed/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goozt/gospeed.git"
+  },
+  "license": "MIT",
+  "author": "Nikhil John <maintainer@goozt.org>",
+  "type": "commonjs",
+  "publishConfig": {
+    "access": "public"
+  },
+  "optionalDependencies": {
+    "@goozt/gospeed-darwin-arm64": "1.3.2",
+    "@goozt/gospeed-darwin-x64": "1.3.2",
+    "@goozt/gospeed-freebsd-arm64": "1.3.2",
+    "@goozt/gospeed-freebsd-x64": "1.3.2",
+    "@goozt/gospeed-linux-arm": "1.3.2",
+    "@goozt/gospeed-linux-arm64": "1.3.2",
+    "@goozt/gospeed-linux-ia32": "1.3.2",
+    "@goozt/gospeed-linux-x64": "1.3.2",
+    "@goozt/gospeed-win32-arm64": "1.3.2",
+    "@goozt/gospeed-win32-ia32": "1.3.2",
+    "@goozt/gospeed-win32-x64": "1.3.2"
+  },
+  "bin": {
+    "gospeed": "./index.js"
+  }
+}

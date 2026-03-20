@@ -54,6 +54,19 @@ go install github.com/goozt/gospeed/cmd/gospeed@latest
 go install github.com/goozt/gospeed/cmd/gospeed-server@latest
 ```
 
+### npm
+
+```sh
+npm install -g @goozt/gospeed
+```
+
+### mise
+
+```sh
+mise use gospeed
+mise use gospeed-server
+```
+
 ### Docker (server only)
 
 ```sh

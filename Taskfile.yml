@@ -81,3 +81,11 @@ tasks:
     desc: Test GoReleaser locally
     cmds:
       - goreleaser release --snapshot --clean
+
+  npm-publish:
+    desc: Publish npm packages
+    deps:
+      - release-snapshot
+    cmds:
+      - bash scripts/npm-packages.sh
+      - bash scripts/npm-publish.sh
