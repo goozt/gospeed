@@ -424,9 +424,9 @@ func (c *Client) estimateUDPBandwidth() int64 {
 	}
 
 	if maxBps > 0 {
-		// Ceil to nearest 100 Mbps (e.g., 189 Mbps → 200 Mbps).
+		// Ceil to nearest 50 Mbps (e.g., 189 Mbps → 200 Mbps).
 		mbps := int64(maxBps / 1_000_000)
-		rounded := ((mbps + 99) / 100) * 100
+		rounded := ((mbps + 49) / 50) * 50
 		return rounded * 1_000_000
 	}
 	return fallback
