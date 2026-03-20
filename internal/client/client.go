@@ -334,7 +334,11 @@ func (c *Client) runLatencyTest(ctx context.Context) (any, results.Grade, error)
 	if e != nil {
 		return nil, "", e
 	}
-	return m, results.GradeLatency(m.Avg), nil
+	grade := results.GradeLatency(m.Avg)
+	if p95Grade := results.GradeLatency(m.P95); p95Grade > grade {
+		grade = p95Grade
+	}
+	return m, grade, nil
 }
 
 func (c *Client) runMTUTest(ctx context.Context) (any, results.Grade, error) {
@@ -440,7 +444,11 @@ func (c *Client) runUDPTest(ctx context.Context) (any, results.Grade, error) {
 	if e != nil {
 		return nil, "", e
 	}
-	return m, results.GradeLoss(m.LossPercent), nil
+	grade := results.GradeLoss(m.LossPercent)
+	if tpGrade := results.GradeThroughput(m.BitsPerSec); tpGrade > grade {
+		grade = tpGrade
+	}
+	return m, grade, nil
 }
 
 func (c *Client) runBufferbloatTest(ctx context.Context) (any, results.Grade, error) {

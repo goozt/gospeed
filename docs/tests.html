@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Understanding GoSpeed Tests — In-Depth Guide</title>
+  <meta name="description" content="Learn about every network test gospeed offers — latency, throughput, bufferbloat, jitter, MTU, DNS, and more. Understand how grading works and what each metric means.">
+  <meta name="darkreader-lock">
+  <meta property="og:image" content="assets/gospeed_slogan_banner.png">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" href="favicon_light.ico" type="image/x-icon" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="favicon_dark.ico" type="image/x-icon" media="(prefers-color-scheme: dark)">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --bg-card: #111827;
+      --bg-code: #0d1117;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --green: #4ade80;
+      --yellow: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+      --grade-a: #4ade80;
+      --grade-b: #38bdf8;
+      --grade-c: #facc15;
+      --grade-d: #fb923c;
+      --grade-f: #f87171;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      background: rgba(10, 14, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .nav-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    nav .logo { font-weight: 800; font-size: 1.25rem; color: var(--accent); text-decoration: none; }
+    nav .links { display: flex; gap: 28px; }
+    nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color .2s; }
+    nav .links a:hover { color: var(--text); }
+    nav .links a.active { color: var(--accent); }
+
+    /* Banner */
+    .banner {
+      margin-top: 60px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .banner img {
+      width: 100%;
+      display: block;
+    }
+
+    /* Article */
+    .article {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 64px 24px 80px;
+    }
+
+    .article-header {
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+    }
+    .article-header h1 {
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .article-header h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .article-header .lead {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* TOC */
+    .toc {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 56px;
+    }
+    .toc h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .toc ol {
+      list-style: none;
+      padding: 0;
+      columns: 2;
+      column-gap: 24px;
+    }
+    .toc li { padding: 4px 0; }
+    .toc a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color .2s;
+    }
+    .toc a:hover { color: #7dd3fc; }
+
+    /* Test sections */
+    .test-section {
+      margin-bottom: 64px;
+      padding-bottom: 64px;
+      border-bottom: 1px solid var(--border);
+    }
+    .test-section:last-child { border-bottom: none; }
+
+    .test-section h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .test-section h2 .protocol-tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .test-section h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 28px 0 10px;
+      color: var(--text);
+    }
+
+    .test-section p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+
+    .test-section ul {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 16px;
+    }
+    .test-section li {
+      font-size: 0.93rem;
+      color: var(--text-muted);
+      padding: 4px 0 4px 18px;
+      position: relative;
+    }
+    .test-section li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    .term {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--accent);
+    }
+
+    /* Grade table */
+    .grade-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin: 16px 0 12px;
+    }
+    .grade-table th, .grade-table td {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+    .grade-table th {
+      background: #161b22;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+    }
+    .grade-table td { border-top: 1px solid var(--border); color: var(--text-muted); }
+    .grade-table tr:hover td { background: rgba(56,189,248,0.03); }
+
+    .grade-badge {
+      display: inline-flex;
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--bg);
+    }
+    .grade-badge.a { background: var(--grade-a); }
+    .grade-badge.b { background: var(--grade-b); }
+    .grade-badge.c { background: var(--grade-c); }
+    .grade-badge.d { background: var(--grade-d); }
+    .grade-badge.f { background: var(--grade-f); }
+
+    .grade-rationale {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .toc ol { columns: 1; }
+      nav .links { gap: 16px; }
+      .article { padding: 40px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><img src="assets/logo_icon.png" alt="gospeed" style="height: 28px; vertical-align: middle; margin-right: 8px;">gospeed</a>
+    <div class="links">
+      <a href="index.html#features">Features</a>
+      <a href="tests.html" class="active">Tests</a>
+      <a href="index.html#install">Install</a>
+      <a href="index.html#docs">Docs</a>
+      <a href="index.html#changelog">Changelog</a>
+      <a href="https://github.com/goozt/gospeed">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="banner">
+  <img src="assets/gospeed_slogan_banner.png" alt="gospeed — Know Your Network">
+</div>
+
+<article class="article">
+
+  <div class="article-header">
+    <h1>Understanding <span>GoSpeed Tests</span></h1>
+    <p class="lead">
+      gospeed runs up to 9 network tests that measure different dimensions of your connection quality.
+      This guide explains what each test measures, when it matters, the key terminology involved,
+      and how the A&ndash;F grading system evaluates your results.
+    </p>
+  </div>
+
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#latency">1. Latency</a></li>
+      <li><a href="#mtu">2. Path MTU</a></li>
+      <li><a href="#tcp">3. TCP Throughput</a></li>
+      <li><a href="#bufferbloat">4. Bufferbloat</a></li>
+      <li><a href="#udp">5. UDP Throughput &amp; Packet Loss</a></li>
+      <li><a href="#jitter">6. Jitter</a></li>
+      <li><a href="#dns">7. DNS Resolution</a></li>
+      <li><a href="#connect">8. TCP Connect</a></li>
+      <li><a href="#bidir">9. Bidirectional Throughput</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. Latency -->
+  <section class="test-section" id="latency">
+    <h2>Latency <span class="protocol-tag">TCP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      Latency measures the <span class="term">round-trip time (RTT)</span> &mdash; how long it takes for a small message
+      to travel from the client to the server and back. gospeed sends 20 TCP echo probes and records the time for each,
+      then reports the minimum, average, 95th percentile, and maximum values in milliseconds.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Interactive applications</span> &mdash; video calls, gaming, remote desktops, and SSH sessions feel sluggish when RTT is high</li>
+      <li><span class="term">TCP performance</span> &mdash; throughput is bounded by the bandwidth-delay product (BDP); higher latency means TCP needs larger buffers to fill the pipe</li>
+      <li><span class="term">Baseline metric</span> &mdash; latency is measured before other tests to establish a reference for bufferbloat comparison</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">RTT (Round-Trip Time)</span> &mdash; time for a packet to go from source to destination and back</li>
+      <li><span class="term">P95</span> &mdash; the 95th percentile; 95% of samples were at or below this value, capturing tail latency</li>
+      <li><span class="term">Jitter</span> &mdash; variation in latency over time (measured separately in the jitter test)</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <p>
+      The latency grade is based on the <span class="term">worse of average and P95 (95th percentile)</span> latency.
+      This ensures that connections with low average but high tail latency &mdash; which cause intermittent lag spikes &mdash;
+      are not misleadingly graded as excellent.
+    </p>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold (Avg or P95)</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&lt; 20 ms</td><td>Excellent &mdash; imperceptible delay for real-time apps</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&lt; 50 ms</td><td>Good &mdash; comfortable for gaming and video calls</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&lt; 100 ms</td><td>Fair &mdash; noticeable lag in interactive use, fine for browsing</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&lt; 200 ms</td><td>Poor &mdash; voice calls start to feel awkward, gaming is impaired</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&ge; 200 ms</td><td>Very poor &mdash; typical of satellite links or severely congested paths</td></tr>
+    </table>
+    <p class="grade-rationale">
+      These thresholds align with ITU-T G.114, which recommends &lt; 150 ms one-way delay for voice.
+      The grade uses the worse of average and P95 because tail latency matters &mdash; a connection averaging 15 ms
+      but spiking to 200 ms at P95 will cause noticeable lag in real-time applications. Google SRE practices
+      similarly emphasize P95/P99 over averages for latency SLOs.
+    </p>
+  </section>
+
+  <!-- 2. Path MTU -->
+  <section class="test-section" id="mtu">
+    <h2>Path MTU <span class="protocol-tag">UDP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      Path MTU discovery determines the <span class="term">Maximum Transmission Unit</span> &mdash; the largest packet size (in bytes) that can traverse
+      the entire network path between client and server without being fragmented. gospeed sends UDP packets with the
+      Don't Fragment (DF) bit set at decreasing sizes until one gets through.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Fragmentation overhead</span> &mdash; packets larger than the path MTU get fragmented, adding CPU overhead and increasing loss probability (if any fragment is lost, the entire packet must be retransmitted)</li>
+      <li><span class="term">VPN and tunnel users</span> &mdash; tunnels add encapsulation headers that reduce the effective MTU; a low MTU often indicates misconfigured tunnel overhead</li>
+      <li><span class="term">Throughput efficiency</span> &mdash; smaller MTU means more header overhead per byte of payload, reducing effective throughput</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">MTU</span> &mdash; Maximum Transmission Unit; the largest IP packet a link can carry without splitting</li>
+      <li><span class="term">DF bit</span> &mdash; Don't Fragment flag in the IP header; routers drop oversized packets instead of fragmenting them</li>
+      <li><span class="term">PMTUD</span> &mdash; Path MTU Discovery; the process of probing to find the path MTU</li>
+      <li><span class="term">MSS</span> &mdash; Maximum Segment Size; MTU minus IP and TCP headers (typically MTU &minus; 40 for IPv4)</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&ge; 1500 bytes</td><td>Standard Ethernet MTU &mdash; no overhead or restriction</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&ge; 1400 bytes</td><td>Slight reduction, common with VPNs (WireGuard, IPsec)</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&ge; 1200 bytes</td><td>Notable reduction, double encapsulation or restrictive network</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&ge; 576 bytes</td><td>Minimum MTU guaranteed by IPv4 spec &mdash; high fragmentation risk</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&lt; 576 bytes</td><td>Below IPv4 minimum &mdash; severely broken path</td></tr>
+    </table>
+    <p class="grade-rationale">
+      1500 bytes is the standard Ethernet MTU and the baseline expectation.
+      576 bytes is the minimum MTU that all IPv4 hosts must support (RFC 791). Anything below that indicates a fundamentally broken network path.
+    </p>
+  </section>
+
+  <!-- 3. TCP Throughput -->
+  <section class="test-section" id="tcp">
+    <h2>TCP Throughput <span class="protocol-tag">TCP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      This test measures the maximum sustained <span class="term">bandwidth</span> achievable over TCP.
+      gospeed opens multiple parallel TCP streams (default: 4) and pushes data for a configurable duration,
+      using BDP-aware buffer sizing to ensure the pipe is fully saturated. The result is reported in Mbps or Gbps.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Bandwidth verification</span> &mdash; confirms whether your ISP delivers the speed you're paying for</li>
+      <li><span class="term">Large file transfers</span> &mdash; directly determines how fast you can upload/download files, backups, or container images</li>
+      <li><span class="term">Streaming quality</span> &mdash; 4K video requires ~25 Mbps; insufficient throughput causes buffering</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">BDP (Bandwidth-Delay Product)</span> &mdash; bandwidth &times; RTT; the amount of data "in flight" needed to fill the pipe</li>
+      <li><span class="term">Mbps / Gbps</span> &mdash; megabits / gigabits per second (note: 1 byte = 8 bits)</li>
+      <li><span class="term">Multi-stream</span> &mdash; multiple parallel TCP connections to overcome single-flow bottlenecks (e.g., window size limits)</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&ge; 100 Mbps</td><td>Excellent &mdash; handles 4K streaming, large downloads, and multi-user households</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&ge; 50 Mbps</td><td>Good &mdash; comfortable for most workloads including HD streaming</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&ge; 25 Mbps</td><td>Adequate &mdash; single 4K stream works, multi-user gets tight</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&ge; 10 Mbps</td><td>Limited &mdash; HD streaming possible, large transfers are slow</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&lt; 10 Mbps</td><td>Insufficient &mdash; basic browsing only, video calls may struggle</td></tr>
+    </table>
+    <p class="grade-rationale">
+      100 Mbps is the modern baseline for a quality broadband connection.
+      The FCC defines 25 Mbps as the threshold for "broadband," placing it at grade C &mdash; functional but below today's expectations.
+    </p>
+  </section>
+
+  <!-- 4. Bufferbloat -->
+  <section class="test-section" id="bufferbloat">
+    <h2>Bufferbloat <span class="protocol-tag">TCP + UDP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      Bufferbloat measures how much your <span class="term">latency increases under load</span>.
+      gospeed saturates the connection with TCP upload traffic across multiple streams while simultaneously
+      sending latency probes on the control channel. The result is expressed as <span class="term">RPM (Round-trips Per Minute)</span>
+      &mdash; how many round-trips the connection can complete in 60 seconds while under full load.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Real-world responsiveness</span> &mdash; raw speed means nothing if latency spikes to 500 ms whenever someone starts a download</li>
+      <li><span class="term">Gaming + video calls</span> &mdash; bufferbloat is the #1 cause of lag spikes during concurrent usage</li>
+      <li><span class="term">Queue management</span> &mdash; a low RPM indicates your router or ISP lacks proper queue management (AQM/SQM)</li>
+      <li><span class="term">Network quality</span> &mdash; Apple introduced RPM as a key metric because throughput alone doesn't capture user experience</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">RPM (Round-trips Per Minute)</span> &mdash; 60000 / loaded_latency_ms; higher is better</li>
+      <li><span class="term">Bufferbloat</span> &mdash; excessive buffering in network equipment that causes high latency under load</li>
+      <li><span class="term">AQM / SQM</span> &mdash; Active Queue Management / Smart Queue Management; algorithms (like fq_codel, CAKE) that prevent buffer bloat by intelligently dropping or marking packets</li>
+      <li><span class="term">Loaded vs Unloaded latency</span> &mdash; latency measured during a throughput test vs at idle; the difference reveals bufferbloat severity</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&ge; 400 RPM</td><td>Excellent &mdash; loaded latency &le; 150 ms; well-managed queues</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&ge; 200 RPM</td><td>Good &mdash; loaded latency &le; 300 ms; minor bufferbloat</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&ge; 100 RPM</td><td>Fair &mdash; loaded latency &le; 600 ms; noticeable lag under load</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&ge; 50 RPM</td><td>Poor &mdash; loaded latency &le; 1.2 s; gaming and calls break down</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&lt; 50 RPM</td><td>Severe &mdash; loaded latency &gt; 1.2 s; connection feels unusable under load</td></tr>
+    </table>
+    <p class="grade-rationale">
+      Apple's responsiveness metric considers &ge; 400 RPM as "high" quality.
+      At &lt; 50 RPM, each round-trip takes over a second under load &mdash; the connection is effectively unusable for interactive tasks while any large transfer is in progress.
+    </p>
+  </section>
+
+  <!-- 5. UDP Throughput & Packet Loss -->
+  <section class="test-section" id="udp">
+    <h2>UDP Throughput &amp; Packet Loss <span class="protocol-tag">UDP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      UDP throughput measures the maximum bandwidth achievable over UDP, along with <span class="term">packet loss</span>
+      and <span class="term">packet reordering</span> statistics. Unlike TCP, UDP has no congestion control or retransmission,
+      so this test reveals the raw capacity and stability of the network path. gospeed caps the UDP send rate based on
+      TCP throughput results to avoid overwhelming the link.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Real-time protocols</span> &mdash; VoIP, video conferencing, and game networking use UDP because retransmission would add unacceptable delay</li>
+      <li><span class="term">Media streaming</span> &mdash; protocols like RTP/RTSP run over UDP; loss and reordering directly affect audio/video quality</li>
+      <li><span class="term">Network path analysis</span> &mdash; comparing TCP vs UDP throughput reveals whether congestion control or path issues are the bottleneck</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">Packet loss</span> &mdash; percentage of sent packets that never arrive</li>
+      <li><span class="term">Packet reordering</span> &mdash; packets arriving in a different order than sent; causes jitter in real-time streams</li>
+      <li><span class="term">Rate cap</span> &mdash; gospeed limits UDP send rate to avoid causing unnecessary congestion; capped at the ceiling of TCP throughput</li>
+      <li><span class="term">Loss rate</span> &mdash; (packets lost / packets sent) &times; 100, expressed as a percentage</li>
+      <li><span class="term">Congestion loss</span> &mdash; packets dropped by routers when buffers overflow</li>
+      <li><span class="term">Random loss</span> &mdash; packets lost due to physical layer errors (wireless interference, bad cables)</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <p>
+      The UDP test grade is based on the <span class="term">worse of packet loss and throughput</span>.
+      Both metrics must be good for the test to receive a high grade &mdash; matching the
+      ITU-T Y.1541 and Y.1564 "all must pass" philosophy where every KPI must meet its threshold independently.
+    </p>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Packet Loss</th><th>Throughput</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&lt; 0.1%</td><td>&ge; 100 Mbps</td><td>Excellent &mdash; near-zero loss with ample bandwidth for any real-time application</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&lt; 0.5%</td><td>&ge; 50 Mbps</td><td>Good &mdash; imperceptible loss, multiple simultaneous streams supported</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&lt; 1.0%</td><td>&ge; 25 Mbps</td><td>Fair &mdash; occasional audio glitches or limited bandwidth for HD streams</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&lt; 2.5%</td><td>&ge; 10 Mbps</td><td>Poor &mdash; voice calls degrade, single-stream real-time use only</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&ge; 2.5%</td><td>&lt; 10 Mbps</td><td>Severe &mdash; real-time communication is unreliable</td></tr>
+    </table>
+    <p class="grade-rationale">
+      The grade uses the worse of both metrics because a connection with zero loss but negligible throughput
+      (or vice versa) is not truly healthy. This approach follows ITU-T Y.1541 which requires all performance
+      parameters to meet their class thresholds independently, and RFC 2544 which evaluates throughput and
+      frame loss as separate pass/fail criteria.
+    </p>
+  </section>
+
+  <!-- 6. Jitter -->
+  <section class="test-section" id="jitter">
+    <h2>Jitter <span class="protocol-tag">UDP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      Jitter measures the <span class="term">inter-packet delay variation</span> &mdash; how consistently packets arrive
+      compared to their expected timing. gospeed calculates jitter using the RFC 3550 algorithm: a running average of
+      the absolute difference between expected and actual inter-arrival times.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Voice and video quality</span> &mdash; codecs expect packets at regular intervals; jitter forces the receiver to use a jitter buffer, adding latency</li>
+      <li><span class="term">Gaming</span> &mdash; variable packet timing causes "rubber-banding" and desynchronization in multiplayer games</li>
+      <li><span class="term">Network stability</span> &mdash; high jitter often indicates congestion, route flapping, or wireless interference</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">Inter-packet delay variation</span> &mdash; the difference in one-way delay between consecutive packets</li>
+      <li><span class="term">RFC 3550</span> &mdash; RTP standard that defines the jitter calculation as an exponentially weighted moving average</li>
+      <li><span class="term">Jitter buffer</span> &mdash; a buffer at the receiver that absorbs timing variations; larger buffer = more latency</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&lt; 5 ms</td><td>Excellent &mdash; minimal buffering needed, crystal-clear VoIP</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&lt; 10 ms</td><td>Good &mdash; small jitter buffer handles it, no perceptible impact</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&lt; 20 ms</td><td>Fair &mdash; jitter buffer adds noticeable delay, occasional artifacts</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&lt; 50 ms</td><td>Poor &mdash; large jitter buffer required, real-time apps struggle</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&ge; 50 ms</td><td>Severe &mdash; real-time audio/video is unreliable</td></tr>
+    </table>
+    <p class="grade-rationale">
+      Cisco recommends &lt; 30 ms jitter for VoIP. The grade A threshold of 5 ms ensures that even without a jitter buffer,
+      packet timing variations are imperceptible. At 50 ms+, even aggressive jitter buffers cannot fully compensate.
+    </p>
+  </section>
+
+  <!-- 7. DNS -->
+  <section class="test-section" id="dns">
+    <h2>DNS Resolution <span class="protocol-tag">UDP/53</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      This test measures how quickly your configured DNS resolver responds to queries. gospeed resolves
+      the server's hostname multiple times and records the response time in milliseconds. Fast DNS is critical
+      because every new connection starts with a DNS lookup.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Page load speed</span> &mdash; a typical webpage triggers 20&ndash;100 DNS lookups; slow DNS adds hundreds of milliseconds</li>
+      <li><span class="term">First-connection latency</span> &mdash; the very first request to any domain is bottlenecked by DNS</li>
+      <li><span class="term">Resolver choice</span> &mdash; your ISP's DNS may be slower than public resolvers (1.1.1.1, 8.8.8.8); this test quantifies the difference</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">DNS (Domain Name System)</span> &mdash; translates hostnames (e.g., example.com) to IP addresses</li>
+      <li><span class="term">Resolver</span> &mdash; the DNS server your system is configured to use (often your router or ISP)</li>
+      <li><span class="term">TTL (Time To Live)</span> &mdash; how long a DNS response is cached; subsequent lookups within the TTL are instant</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&lt; 10 ms</td><td>Excellent &mdash; local or nearby resolver, near-instant lookups</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&lt; 30 ms</td><td>Good &mdash; fast public resolver or well-configured ISP DNS</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&lt; 75 ms</td><td>Fair &mdash; adds noticeable delay to first connections</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&lt; 200 ms</td><td>Slow &mdash; consider switching to a faster DNS resolver</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&ge; 200 ms</td><td>Very slow &mdash; every new connection is delayed by hundreds of milliseconds</td></tr>
+    </table>
+    <p class="grade-rationale">
+      Modern DNS resolvers (Cloudflare, Google) typically respond in under 10 ms from nearby PoPs.
+      At 200 ms+, DNS alone adds a noticeable pause every time you visit a new website or connect to a new service.
+    </p>
+  </section>
+
+  <!-- 8. TCP Connect -->
+  <section class="test-section" id="connect">
+    <h2>TCP Connect <span class="protocol-tag">TCP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      TCP Connect measures the time it takes to establish a TCP connection &mdash; the <span class="term">three-way handshake</span>
+      (SYN &rarr; SYN-ACK &rarr; ACK). This is the minimum overhead before any data can flow and is measured
+      independently from application-level latency.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Connection-heavy workloads</span> &mdash; HTTP/1.1 without keep-alive, microservices, and API calls each open new connections</li>
+      <li><span class="term">TLS overhead</span> &mdash; TLS adds 1&ndash;2 additional round-trips on top of the TCP handshake; slow connect time compounds with TLS</li>
+      <li><span class="term">Firewall/middlebox detection</span> &mdash; unusually slow connect times can indicate SYN inspection, rate limiting, or geographic routing issues</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">Three-way handshake</span> &mdash; SYN, SYN-ACK, ACK; the TCP connection establishment sequence</li>
+      <li><span class="term">SYN</span> &mdash; the first packet sent by the client to initiate a connection</li>
+      <li><span class="term">TTFB (Time To First Byte)</span> &mdash; includes DNS + TCP connect + TLS + server processing; connect time is one component</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&lt; 50 ms</td><td>Excellent &mdash; fast handshake, minimal connection overhead</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&lt; 100 ms</td><td>Good &mdash; acceptable for most applications</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&lt; 200 ms</td><td>Fair &mdash; connection setup is noticeable, especially with TLS</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&lt; 500 ms</td><td>Slow &mdash; each new connection adds significant delay</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&ge; 500 ms</td><td>Very slow &mdash; connections time out frequently, possible middlebox interference</td></tr>
+    </table>
+    <p class="grade-rationale">
+      TCP connect time is roughly 1x RTT in the best case (SYN + SYN-ACK).
+      The thresholds are wider than latency because connect time can include server-side SYN queue processing.
+      At 500 ms+, many applications will hit their connection timeout defaults.
+    </p>
+  </section>
+
+  <!-- 9. Bidirectional -->
+  <section class="test-section" id="bidir">
+    <h2>Bidirectional Throughput <span class="protocol-tag">TCP</span></h2>
+
+    <h3>What It Measures</h3>
+    <p>
+      The bidirectional test measures <span class="term">simultaneous upload and download throughput</span>.
+      Unlike the standard TCP test which measures one direction at a time, this test runs both directions concurrently
+      using multiple parallel streams in each direction. The results show upload and download speeds achieved under
+      full-duplex load.
+    </p>
+
+    <h3>Why It Matters</h3>
+    <ul>
+      <li><span class="term">Real-world simulation</span> &mdash; most connections carry traffic in both directions at once (video calls, file sync, web browsing with uploads)</li>
+      <li><span class="term">Full-duplex verification</span> &mdash; some links (especially asymmetric DSL or cable) suffer significant throughput drops when both directions are active simultaneously</li>
+      <li><span class="term">QoS and fairness</span> &mdash; reveals whether your router or ISP prioritizes one direction over the other under contention</li>
+      <li><span class="term">Video conferencing</span> &mdash; requires sustained bandwidth in both directions; single-direction tests miss contention issues</li>
+    </ul>
+
+    <h3>Key Terminology</h3>
+    <ul>
+      <li><span class="term">Full-duplex</span> &mdash; simultaneous two-way communication; both upload and download happen at the same time</li>
+      <li><span class="term">Half-duplex</span> &mdash; only one direction at a time; some wireless links (especially older Wi-Fi) operate this way</li>
+      <li><span class="term">Asymmetric link</span> &mdash; a connection where upload and download speeds differ (common with cable and DSL)</li>
+      <li><span class="term">Contention</span> &mdash; competing traffic in both directions sharing the same bottleneck link</li>
+    </ul>
+
+    <h3>Grading</h3>
+    <table class="grade-table">
+      <tr><th>Grade</th><th>Threshold</th><th>What It Means</th></tr>
+      <tr><td><span class="grade-badge a">A</span></td><td>&ge; 100 Mbps</td><td>Excellent &mdash; strong throughput maintained in both directions simultaneously</td></tr>
+      <tr><td><span class="grade-badge b">B</span></td><td>&ge; 50 Mbps</td><td>Good &mdash; comfortable for concurrent uploads and downloads</td></tr>
+      <tr><td><span class="grade-badge c">C</span></td><td>&ge; 25 Mbps</td><td>Adequate &mdash; some contention visible but workable</td></tr>
+      <tr><td><span class="grade-badge d">D</span></td><td>&ge; 10 Mbps</td><td>Limited &mdash; full-duplex workloads are constrained</td></tr>
+      <tr><td><span class="grade-badge f">F</span></td><td>&lt; 10 Mbps</td><td>Insufficient &mdash; significant degradation under bidirectional load</td></tr>
+    </table>
+    <p class="grade-rationale">
+      Graded on the same throughput scale as TCP. The grade is based on the <strong>slower direction</strong> (whichever of upload
+      or download has lower throughput), ensuring the grade reflects the weakest link under full-duplex load.
+      Comparing bidirectional results to single-direction TCP results reveals how much throughput is lost to contention &mdash;
+      a large drop indicates the link or router cannot handle full-duplex traffic efficiently.
+    </p>
+  </section>
+
+</article>
+
+<footer>
+  <div style="max-width: 1100px; margin: 0 auto; padding: 0 24px;">
+    <img src="assets/logo_light.png" alt="gospeed" style="height: 40px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">
+    <p><strong style="color: var(--text);">gospeed</strong> &mdash; MIT License &middot; <a href="https://github.com/goozt/gospeed">GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
