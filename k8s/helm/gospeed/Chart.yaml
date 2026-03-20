@@ -1,0 +1,13 @@
+apiVersion: v2
+name: gospeed
+description: A fast, zero-dependency network speed testing tool
+type: application
+version: 0.1.0
+appVersion: "1.3.2"
+keywords:
+  - network
+  - speed-test
+  - benchmarking
+home: https://gospeed.goozt.org
+sources:
+  - https://github.com/goozt/gospeed

@@ -60,6 +60,21 @@ go install github.com/goozt/gospeed/cmd/gospeed-server@latest
 docker compose up -d
 ```
 
+### Kubernetes
+
+Plain manifests, Helm chart, and Kustomize overlays are provided in the [`k8s/`](k8s/) directory. See [`k8s/README.md`](k8s/README.md) for full details.
+
+```sh
+# Plain manifests
+kubectl apply -f k8s/manifests/
+
+# Helm
+helm install gospeed k8s/helm/gospeed/
+
+# Kustomize (dev / prod)
+kubectl apply -k k8s/kustomize/overlays/prod/
+```
+
 ## Usage
 
 ### Server

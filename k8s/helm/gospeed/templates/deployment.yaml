@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gospeed.fullname" . }}
+  labels:
+    {{- include "gospeed.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "gospeed.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "gospeed.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: gospeed-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--port"
+            - {{ .Values.server.port | quote }}
+            {{- if .Values.health.enabled }}
+            - "--health"
+            - {{ .Values.health.port | quote }}
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            {{- if eq .Values.tls.mode "self-signed" }}
+            - "--tls-self-signed"
+            {{- else if eq .Values.tls.mode "manual" }}
+            - "--tls-cert"
+            - {{ .Values.tls.cert | quote }}
+            - "--tls-key"
+            - {{ .Values.tls.key | quote }}
+            {{- else if eq .Values.tls.mode "acme" }}
+            - "--tls-acme"
+            - "--domain"
+            - {{ .Values.tls.domain | quote }}
+            - "--email"
+            - {{ .Values.tls.email | quote }}
+            - "--cert-dir"
+            - {{ .Values.tls.certDir | quote }}
+            {{- end }}
+            {{- end }}
+          ports:
+            - name: server-tcp
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+            - name: server-udp
+              containerPort: {{ .Values.server.port }}
+              protocol: UDP
+            {{- if .Values.health.enabled }}
+            - name: health
+              containerPort: {{ .Values.health.port }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.health.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: certs
+              mountPath: {{ .Values.tls.certDir }}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: certs
+          persistentVolumeClaim:
+            claimName: {{ include "gospeed.fullname" . }}-certs
+      {{- end }}

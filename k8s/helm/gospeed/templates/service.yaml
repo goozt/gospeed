@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gospeed.fullname" . }}-tcp
+  labels:
+    {{- include "gospeed.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "gospeed.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: server
+      port: {{ .Values.server.port }}
+      targetPort: server-tcp
+      protocol: TCP
+    {{- if .Values.health.enabled }}
+    - name: health
+      port: {{ .Values.health.port }}
+      targetPort: health
+      protocol: TCP
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gospeed.fullname" . }}-udp
+  labels:
+    {{- include "gospeed.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "gospeed.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: server
+      port: {{ .Values.server.port }}
+      targetPort: server-udp
+      protocol: UDP

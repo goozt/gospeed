@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gospeed-server-tcp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: gospeed
+    app.kubernetes.io/component: server
+  ports:
+    - name: server
+      port: 9000
+      targetPort: server-tcp
+      protocol: TCP
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gospeed-server-udp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: gospeed
+    app.kubernetes.io/component: server
+  ports:
+    - name: server
+      port: 9000
+      targetPort: server-udp
+      protocol: UDP
