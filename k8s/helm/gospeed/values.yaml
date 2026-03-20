@@ -29,10 +29,10 @@ service:
 
 ingress:
   enabled: false
-  className: nginx
+  className: traefik
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "TCP"
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
     - speed.example.com
   tls: []

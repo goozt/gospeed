@@ -22,10 +22,23 @@ spec:
         - port: {{ .Values.health.port }}
           protocol: TCP
         {{- end }}
+      {{- if .Values.ingress.enabled }}
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      {{- end }}
   egress:
+    # Allow DNS resolution
     - ports:
         - port: 53
           protocol: UDP
         - port: 53
           protocol: TCP
+    {{- if and .Values.tls.enabled (eq .Values.tls.mode "acme") }}
+    # Allow HTTPS outbound for ACME certificate renewal
+    - ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
 {{- end }}

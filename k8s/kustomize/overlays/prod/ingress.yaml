@@ -3,10 +3,10 @@ kind: Ingress
 metadata:
   name: gospeed-server
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "TCP"
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
     - host: speed.example.com
       http:

@@ -22,12 +22,12 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "gospeed.fullname" $ }}-tcp
+                name: {{ include "gospeed.fullname" $ }}
                 port:
                   number: {{ $.Values.server.port }}
     {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- with .Values.ingress.tls }}
   tls:
-    {{- toYaml .Values.ingress.tls | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
