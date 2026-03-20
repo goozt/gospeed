@@ -65,12 +65,17 @@
     /* Banner */
     .banner {
       margin-top: 60px;
-      width: 100%;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
       overflow: hidden;
     }
     .banner img {
       width: 100%;
       display: block;
+    }
+    @media (max-width: 1024px) {
+      .banner { max-width: 100%; }
     }
 
     /* Article */
