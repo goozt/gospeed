@@ -88,17 +88,20 @@ archives:
         formats:
           - zip
 
-homebrew_casks:
+brews:
   - ids:
       - gospeed
     name: gospeed
     repository:
       owner: goozt
       name: homebrew-org
-    directory: Casks
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
     homepage: https://gospeed.goozt.org
     description: Fast, zero-dependency network speed testing tool
     license: MIT
+    install: |
+      bin.install "gospeed"
 
   - ids:
       - gospeed-server
@@ -106,10 +109,13 @@ homebrew_casks:
     repository:
       owner: goozt
       name: homebrew-org
-    directory: Casks
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
     homepage: https://gospeed.goozt.org
     description: Speed test server for gospeed
     license: MIT
+    install: |
+      bin.install "gospeed-server"
 
 scoops:
   - ids:
@@ -145,11 +151,7 @@ nfpms:
       - deb
       - rpm
     bindir: /usr/bin
-    file_name_template: >-
-      {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
-      {{- if and (eq .Arm "6") (eq .ConventionalExtension ".deb") }}6{{ end -}}
-      {{- if not (eq .Amd64 "v1")}}{{ .Amd64 }}{{ end -}}
-      {{- .ConventionalExtension -}}
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ .ConventionalExtension }}"
 
   - id: gospeed-server-nfpm
     ids:
@@ -163,11 +165,7 @@ nfpms:
       - deb
       - rpm
     bindir: /usr/bin
-    file_name_template: >-
-      {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
-      {{- if and (eq .Arm "6") (eq .ConventionalExtension ".deb") }}6{{ end -}}
-      {{- if not (eq .Amd64 "v1")}}{{ .Amd64 }}{{ end -}}
-      {{- .ConventionalExtension -}}
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ .ConventionalExtension }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -182,9 +180,9 @@ changelog:
 
 signs:
   - id: gospeed-sig
-    cmd: cosign
     artifacts: all
     signature: "${artifact}.sigstore.json"
+    cmd: cosign
     args:
       - "sign-blob"
       - "--bundle=${signature}"
