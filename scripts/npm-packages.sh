@@ -2,9 +2,17 @@
 
 set -euo pipefail
 
+VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "dev")}"
+if [ -z "${1:-}" ]; then
+  echo "Latest tag found: $VERSION" 
+  read -rp "Press Enter to confirm or input a different version: " input_version
+  if [ -n "$input_version" ]; then
+    VERSION="$input_version"
+  fi
+fi
+
 DIST_DIR="dist"
 OUT_DIR="dist/npm"
-VERSION="${1:-$(grep '"version"' package.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')}"
 
 # Go OS → npm os
 declare -A OS_MAP=(

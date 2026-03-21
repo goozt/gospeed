@@ -117,6 +117,7 @@ scoops:
     repository:
       owner: goozt
       name: scoop-bucket
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://gospeed.goozt.org
     description: Fast, zero-dependency network speed testing tool
     license: MIT
@@ -126,43 +127,10 @@ scoops:
     repository:
       owner: goozt
       name: scoop-bucket
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://gospeed.goozt.org
     description: Speed test server for gospeed
     license: MIT
-
-# TODO:Add STORE_LOGIN to github secrets
-#   Command: snapcraft export-login --snaps=gospeed \
-#      --acls package_access,package_push,package_update,package_release \
-#      exported.txt && \
-#      gh secret set STORE_LOGIN --repo=goozt/gospeed --env=snapcraft < exported.txt
-#
-# snapcrafts:
-#   - id: gospeed-snap
-#     ids:
-#       - gospeed
-#     name: gospeed
-#     summary: Fast, zero-dependency network speed testing tool
-#     description: |
-#       gospeed measures network performance with scientifically grounded testing
-#       including latency, MTU, TCP/UDP throughput, jitter, bufferbloat, DNS,
-#       connect time, and bidirectional throughput.
-#     grade: stable
-#     confinement: strict
-#     license: MIT
-#     publish: true
-
-#   - id: gospeed-server-snap
-#     ids:
-#       - gospeed-server
-#     name: gospeed-server
-#     summary: Speed test server for gospeed
-#     description: |
-#       gospeed-server listens for incoming client connections and handles
-#       concurrent network performance test requests.
-#     grade: stable
-#     confinement: strict
-#     license: MIT
-#     publish: true
 
 nfpms:
   - id: gospeed-nfpm
