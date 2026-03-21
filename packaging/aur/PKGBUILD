@@ -1,0 +1,20 @@
+# Maintainer: goozt <goozt@users.noreply.github.com>
+pkgname=gospeed
+pkgver=1.3.2
+pkgrel=1
+pkgdesc="Fast, zero-dependency network speed testing tool"
+arch=('x86_64' 'aarch64' 'armv7h')
+url="https://github.com/goozt/gospeed"
+license=('MIT')
+depends=('glibc')
+source_x86_64=("${url}/releases/download/v${pkgver}/gospeed_${pkgver}_linux_amd64.tar.gz")
+source_aarch64=("${url}/releases/download/v${pkgver}/gospeed_${pkgver}_linux_arm64.tar.gz")
+source_armv7h=("${url}/releases/download/v${pkgver}/gospeed_${pkgver}_linux_arm.tar.gz")
+# Update checksums with: updpkgsums
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+sha256sums_armv7h=('SKIP')
+
+package() {
+    install -Dm755 gospeed "${pkgdir}/usr/bin/gospeed"
+}

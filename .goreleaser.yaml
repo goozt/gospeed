@@ -88,6 +88,119 @@ archives:
         formats:
           - zip
 
+homebrew_casks:
+  - ids:
+      - gospeed
+    name: gospeed
+    repository:
+      owner: goozt
+      name: homebrew-tap
+    directory: Casks
+    homepage: https://gospeed.goozt.org
+    description: Fast, zero-dependency network speed testing tool
+    license: MIT
+
+  - ids:
+      - gospeed-server
+    name: gospeed-server
+    repository:
+      owner: goozt
+      name: homebrew-tap
+    directory: Casks
+    homepage: https://gospeed.goozt.org
+    description: Speed test server for gospeed
+    license: MIT
+
+scoops:
+  - ids:
+      - gospeed
+    repository:
+      owner: goozt
+      name: scoop-bucket
+    homepage: https://gospeed.goozt.org
+    description: Fast, zero-dependency network speed testing tool
+    license: MIT
+
+  - ids:
+      - gospeed-server
+    repository:
+      owner: goozt
+      name: scoop-bucket
+    homepage: https://gospeed.goozt.org
+    description: Speed test server for gospeed
+    license: MIT
+
+# TODO:Add STORE_LOGIN to github secrets
+#   Command: snapcraft export-login --snaps=gospeed \
+#      --acls package_access,package_push,package_update,package_release \
+#      exported.txt && \
+#      gh secret set STORE_LOGIN --repo=goozt/gospeed --env=snapcraft < exported.txt
+#
+# snapcrafts:
+#   - id: gospeed-snap
+#     ids:
+#       - gospeed
+#     name: gospeed
+#     summary: Fast, zero-dependency network speed testing tool
+#     description: |
+#       gospeed measures network performance with scientifically grounded testing
+#       including latency, MTU, TCP/UDP throughput, jitter, bufferbloat, DNS,
+#       connect time, and bidirectional throughput.
+#     grade: stable
+#     confinement: strict
+#     license: MIT
+#     publish: true
+
+#   - id: gospeed-server-snap
+#     ids:
+#       - gospeed-server
+#     name: gospeed-server
+#     summary: Speed test server for gospeed
+#     description: |
+#       gospeed-server listens for incoming client connections and handles
+#       concurrent network performance test requests.
+#     grade: stable
+#     confinement: strict
+#     license: MIT
+#     publish: true
+
+nfpms:
+  - id: gospeed-nfpm
+    ids:
+      - gospeed
+    package_name: gospeed
+    homepage: https://gospeed.goozt.org
+    maintainer: goozt <goozt@users.noreply.github.com>
+    description: Fast, zero-dependency network speed testing tool
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    file_name_template: >-
+      {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
+      {{- if and (eq .Arm "6") (eq .ConventionalExtension ".deb") }}6{{ end -}}
+      {{- if not (eq .Amd64 "v1")}}{{ .Amd64 }}{{ end -}}
+      {{- .ConventionalExtension -}}
+
+  - id: gospeed-server-nfpm
+    ids:
+      - gospeed-server
+    package_name: gospeed-server
+    homepage: https://gospeed.goozt.org
+    maintainer: goozt <goozt@users.noreply.github.com>
+    description: Speed test server for gospeed
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    file_name_template: >-
+      {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
+      {{- if and (eq .Arm "6") (eq .ConventionalExtension ".deb") }}6{{ end -}}
+      {{- if not (eq .Amd64 "v1")}}{{ .Amd64 }}{{ end -}}
+      {{- .ConventionalExtension -}}
+
 checksum:
   name_template: "checksums.txt"
 
@@ -98,3 +211,13 @@ changelog:
       - "^docs:"
       - "^test:"
       - "^ci:"
+
+signs:
+  - id: gospeed-sig
+    artifacts: all
+    args:
+      - "sign-blob"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
