@@ -214,10 +214,11 @@ changelog:
 
 signs:
   - id: gospeed-sig
+    cmd: cosign
     artifacts: all
+    signature: "${artifact}.sigstore.json"
     args:
       - "sign-blob"
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"

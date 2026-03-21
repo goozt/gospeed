@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.3] - 2026-03-21
+
+### Added
+- Kubernetes deployment support with Helm charts and Kustomize overlays
+- npm package publishing scripts for gospeed and gospeed-server
+
+### Improved
+- Enhanced release process with GoReleaser support for Homebrew, Scoop, and npm packages
+
+### Fixed
+- Limits and `GOMAXPROCS` environment variable in Kubernetes deployment configurations
+- Updated ingress configuration to use Traefik annotations and class
+- Removed unused slogan banner section from documentation
+- Adjusted banner styling for better responsiveness
+- Removed unused `gocyclo` command from version bump task
+
 ## [v1.3.2] - 2026-03-20
 
 ### Improved
