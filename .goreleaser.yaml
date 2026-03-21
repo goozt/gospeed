@@ -94,7 +94,7 @@ homebrew_casks:
     name: gospeed
     repository:
       owner: goozt
-      name: homebrew-tap
+      name: homebrew-org
     directory: Casks
     homepage: https://gospeed.goozt.org
     description: Fast, zero-dependency network speed testing tool
@@ -105,7 +105,7 @@ homebrew_casks:
     name: gospeed-server
     repository:
       owner: goozt
-      name: homebrew-tap
+      name: homebrew-org
     directory: Casks
     homepage: https://gospeed.goozt.org
     description: Speed test server for gospeed
