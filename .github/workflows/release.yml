@@ -4,18 +4,13 @@ on:
   push:
     tags:
       - "v*"
-  
-permissions:
-  contents: write
-  id-token: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: npm
-    outputs:
-      gh_release_exists: ${{ steps.check_api.outputs.exists }}
-      npm_exists: ${{ steps.check-npm.outputs.exists }}
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,12 +20,6 @@ jobs:
       - name: Check release
         id: check_api
         uses: ./.github/actions/check-release
-
-      - name: Check npm package exists
-        id: check-npm
-        uses: ./.github/actions/check-npm
-        with:
-          npm_token: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.4.0
@@ -60,9 +49,11 @@ jobs:
 
   npm-publish:
     needs: release
-    if: needs.release.outputs.npm_exists == 'false'
     runs-on: ubuntu-latest
     environment: npm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,6 +69,9 @@ jobs:
           node-version: 22
           registry-url: "https://registry.npmjs.org"
 
+      - name: Ensure latest npm
+        run: npm install -g npm@latest
+
       - name: Generate npm packages
         run: bash scripts/npm-packages.sh -y
 
@@ -90,8 +84,6 @@ jobs:
               npm publish "$dir" --provenance --access public
             fi
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish root packages
         run: |
@@ -99,5 +91,3 @@ jobs:
           cp README.md scripts/gospeed-server/README.md
           npm publish scripts/gospeed --provenance --access public
           npm publish scripts/gospeed-server --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
