@@ -41,14 +41,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Run GoReleaser
-        run: |
-          if [ "${{ steps.check_api.outputs.exists }}" = "true" ]; then
-            echo "GitHub release exists; build artifacts only for npm."
-            goreleaser release --clean --skip-publish --skip-announce
-          else
-            echo "GitHub release not found; performing full release."
-            goreleaser release --clean
-          fi
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: >
+            release --clean 
+            ${{ steps.check_api.outputs.exists == 'true' && '--skip-publish --skip-announce' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
