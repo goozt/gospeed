@@ -80,6 +80,7 @@ jobs:
           shopt -s nullglob
           for dir in dist/npm/*/; do
             if [ -f "${dir}package.json" ]; then
+              npm pkg set repository.type="git" repository.url="git+https://github.com/goozt/gospeed.git" --prefix "$dir"
               echo "Publishing $dir..."
               npm publish "$dir" --provenance --access public
             fi
