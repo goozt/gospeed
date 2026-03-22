@@ -16,9 +16,6 @@ fi
 DIST_DIR="dist"
 OUT_DIR="dist/npm"
 
-echo "Using version: $VERSION"
-exit 0;
-
 # Go OS → npm os
 declare -A OS_MAP=(
   [linux]=linux
