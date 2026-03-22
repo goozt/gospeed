@@ -1,0 +1,26 @@
+name: "Check npm package exists"
+description: "Checks if the npm package exists for a specific version"
+inputs:
+  npm_token:
+    description: "NPM Token"
+    required: true
+outputs:
+  exists:
+    description: "Whether the npm package exists"
+    value: ${{ steps.check.outputs.exists }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: check
+      shell: bash
+      run: |
+        VERSION="$(echo '${{ github.ref_name }}' | sed 's/^v//')"
+        echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
+        if npm view "@goozt/gospeed@${VERSION}" version >/dev/null 2>&1; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+      env:
+        NPM_TOKEN: ${{ inputs.npm_token }}

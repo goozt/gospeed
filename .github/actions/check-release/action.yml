@@ -1,0 +1,25 @@
+name: 'Check GitHub Release'
+description: 'Checks if a release exists for a specific tag'
+inputs:
+  token:
+    description: 'GitHub Token'
+    required: true
+    default: ${{ github.token }}
+outputs:
+  exists:
+    description: 'Whether the release exists'
+    value: ${{ steps.check.outputs.exists }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: check
+      shell: bash
+      run: |
+        if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GH_TOKEN: ${{ inputs.token }}

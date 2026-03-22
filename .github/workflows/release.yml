@@ -12,11 +12,25 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: npm
+    outputs:
+      gh_release_exists: ${{ steps.check_api.outputs.exists }}
+      npm_exists: ${{ steps.check-npm.outputs.exists }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check release
+        id: check_api
+        uses: ./.github/actions/check-release
+
+      - name: Check npm package exists
+        id: check-npm
+        uses: ./.github/actions/check-npm
+        with:
+          npm_token: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.4.0
@@ -26,10 +40,15 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          args: release --clean
+      - name: Run GoReleaser
+        run: |
+          if [ "${{ steps.check_api.outputs.exists }}" = "true" ]; then
+            echo "GitHub release exists; build artifacts only for npm."
+            goreleaser release --clean --skip-publish --skip-announce
+          else
+            echo "GitHub release not found; performing full release."
+            goreleaser release --clean
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
@@ -43,6 +62,7 @@ jobs:
 
   npm-publish:
     needs: release
+    if: needs.release.outputs.npm_exists == 'false'
     runs-on: ubuntu-latest
     environment: npm
     steps:
