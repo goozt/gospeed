@@ -95,7 +95,7 @@ brews:
     repository:
       owner: goozt
       name: homebrew-org
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.HOMEBREW_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://gospeed.goozt.org
     description: Fast, zero-dependency network speed testing tool
@@ -109,7 +109,7 @@ brews:
     repository:
       owner: goozt
       name: homebrew-org
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.HOMEBREW_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://gospeed.goozt.org
     description: Speed test server for gospeed
@@ -123,7 +123,7 @@ scoops:
     repository:
       owner: goozt
       name: scoop-bucket
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.SCOOPS_GITHUB_TOKEN }}"
     homepage: https://gospeed.goozt.org
     description: Fast, zero-dependency network speed testing tool
     license: MIT
@@ -133,7 +133,7 @@ scoops:
     repository:
       owner: goozt
       name: scoop-bucket
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.SCOOPS_GITHUB_TOKEN }}"
     homepage: https://gospeed.goozt.org
     description: Speed test server for gospeed
     license: MIT
@@ -164,6 +164,16 @@ nfpms:
     formats:
       - deb
       - rpm
+    scripts:
+      postinstall: scripts/apt/postinstall.sh
+      preremove: scripts/apt/preremove.sh
+    contents:
+      - src: packaging/apt/gospeed.service
+        dst: /lib/systemd/system/gospeed.service
+        file_info:
+          mode: 0644
+          owner: root
+          group: root
     bindir: /usr/bin
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ .ConventionalExtension }}"
 

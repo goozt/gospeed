@@ -1,0 +1,11 @@
+[Unit]
+Description=Gospeed Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/gospeed-server
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

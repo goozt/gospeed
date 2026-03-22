@@ -45,12 +45,11 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: >
-            release --clean 
-            ${{ steps.check_api.outputs.exists == 'true' && '--skip-publish --skip-announce' || '' }}
+          args: release --clean ${{ steps.check_api.outputs.exists == 'true' && '--skip-publish --skip-announce' || '--replace' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_TOKEN: ${{ secrets.PACKAGE_PUBLISHING_TOKEN }}
+          SCOOPS_GITHUB_TOKEN: ${{ secrets.PACKAGE_PUBLISHING_TOKEN }}
       
       - name: Upload dist
         uses: actions/upload-artifact@v4
