@@ -61,7 +61,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Generate npm packages
-        run: bash scripts/npm-packages.sh
+        run: bash scripts/npm-packages.sh -y
 
       - name: Publish platform packages
         run: |

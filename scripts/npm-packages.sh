@@ -3,7 +3,7 @@
 set -euo pipefail
 
 VERSION="${1:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "dev")}"
-if [ -z "${1:-}" ]; then
+if [ "${1:-}" != "-y" ] && [ -z "${1:-}" ]; then
   echo "Latest tag found: $VERSION" 
   read -rp "Press Enter to confirm or input a different version: " input_version
   if [ -n "$input_version" ]; then
