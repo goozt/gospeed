@@ -69,9 +69,6 @@ jobs:
           node-version: 22
           registry-url: "https://registry.npmjs.org"
 
-      - name: Ensure latest npm
-        run: npm install -g npm@latest
-
       - name: Generate npm packages
         run: bash scripts/npm-packages.sh -y "${GITHUB_REF_NAME#v}"
 
