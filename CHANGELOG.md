@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.6] - 2026-05-21
+
+### Fixed
+- Dropped broken `npm install -g npm@latest` step from the release workflow (failed on Node 22 runner with arborist `MODULE_NOT_FOUND`); bundled npm already supports provenance and OIDC
+
 ## [v1.3.5] - 2026-05-21
 
 ### Fixed
