@@ -73,22 +73,34 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Generate npm packages
-        run: bash scripts/npm-packages.sh -y
+        run: bash scripts/npm-packages.sh -y "${GITHUB_REF_NAME#v}"
 
       - name: Publish platform packages
         run: |
           shopt -s nullglob
           for dir in dist/npm/*/; do
-            if [ -f "${dir}package.json" ]; then
-              npm pkg set repository.type="git" repository.url="git+https://github.com/goozt/gospeed.git" --prefix "$dir"
-              echo "Publishing $dir..."
-              npm publish "$dir" --provenance --access public
+            [ -f "${dir}package.json" ] || continue
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "Skipping ${name}@${version} (already published)"
+              continue
             fi
+            npm pkg set repository.type="git" repository.url="git+https://github.com/goozt/gospeed.git" --prefix "$dir"
+            echo "Publishing ${name}@${version}..."
+            npm publish "$dir" --provenance --access public
           done
 
       - name: Publish root packages
         run: |
-          cp README.md scripts/gospeed/README.md
-          cp README.md scripts/gospeed-server/README.md
-          npm publish scripts/gospeed --provenance --access public
-          npm publish scripts/gospeed-server --provenance --access public
+          for pkg in gospeed gospeed-server; do
+            dir="packaging/npm/${pkg}"
+            cp README.md "${dir}/README.md"
+            name=$(node -p "require('./${dir}/package.json').name")
+            version=$(node -p "require('./${dir}/package.json').version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "Skipping ${name}@${version} (already published)"
+              continue
+            fi
+            npm publish "$dir" --provenance --access public
+          done

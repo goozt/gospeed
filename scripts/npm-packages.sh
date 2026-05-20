@@ -95,4 +95,61 @@ EOF
   echo "Created $pkg_dir"
 done
 
+# Create main package.json for client and server
+for pkg_dir in "packaging/npm"/*/; do
+  [ -d "$pkg_dir" ] || continue
+  pkg_name="$(basename "$pkg_dir")"
+  npm_pkg_name="@goozt/${pkg_name}"
+  case "$pkg_name" in (*server*) pkg_type="server";; *) pkg_type="client" ;; esac
+  cat > "$pkg_dir/package.json" <<EOF
+{
+  "name": "${npm_pkg_name}",
+  "version": "${VERSION}",
+  "description": "A fast, zero-dependency network speed testing tool written in Go. Client-server architecture for accurate network performance measurement.",
+  "keywords": [
+    "${pkg_name}",
+    "${pkg_type}",
+    "cli",
+    "performance",
+    "network",
+    "speed",
+    "benchmark",
+    "optimization",
+    "speed-test"
+  ],
+  "homepage": "https://gospeed.goozt.org",
+  "bugs": {
+    "url": "https://github.com/goozt/gospeed/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goozt/gospeed.git"
+  },
+  "license": "MIT",
+  "author": "Nikhil John <maintainer@goozt.org>",
+  "type": "commonjs",
+  "publishConfig": {
+    "access": "public"
+  },
+  "optionalDependencies": {
+    "${npm_pkg_name}-darwin-arm64": "${VERSION}",
+    "${npm_pkg_name}-darwin-x64": "${VERSION}",
+    "${npm_pkg_name}-freebsd-arm64": "${VERSION}",
+    "${npm_pkg_name}-freebsd-x64": "${VERSION}",
+    "${npm_pkg_name}-linux-arm": "${VERSION}",
+    "${npm_pkg_name}-linux-arm64": "${VERSION}",
+    "${npm_pkg_name}-linux-ia32": "${VERSION}",
+    "${npm_pkg_name}-linux-x64": "${VERSION}",
+    "${npm_pkg_name}-win32-arm64": "${VERSION}",
+    "${npm_pkg_name}-win32-ia32": "${VERSION}",
+    "${npm_pkg_name}-win32-x64": "${VERSION}"
+  },
+  "bin": {
+    "${pkg_name}": "./index.js"
+  }
+}
+EOF
+  echo "Created $pkg_dir""package.json"
+done
+
 echo "Done. Generated npm packages in $OUT_DIR/"
