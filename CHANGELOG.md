@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.5] - 2026-05-21
+
+### Fixed
+- Repaired npm release flow: publish root wrappers from `packaging/npm/` (previous path was deleted, leaving `@goozt/gospeed` and `@goozt/gospeed-server` stuck at 1.3.2)
+- Wrapper `index.js` now resolves the `.exe` binary on Windows
+- Made platform and root publish steps idempotent, skipping already-published versions so reruns no longer fail with E403
+- Pass the git tag explicitly as the npm package version instead of relying on `git describe` in a shallow checkout
+
+### Improved
+- Removed broken `scripts/npm-trusted-publisher.sh` (OIDC trusted publishing is configured on npmjs.org)
+
 ## [v1.3.3] - 2026-03-21
 
 ### Added

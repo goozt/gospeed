@@ -737,7 +737,23 @@ gospeed</code>
     <div class="changelog-list">
 
       <div class="changelog-version">
-        <h3>v1.3.3 <span class="tag">Latest</span></h3>
+        <h3>v1.3.5 <span class="tag">Latest</span></h3>
+        <div class="date">2026-05-21</div>
+        <h4>Fixed</h4>
+        <ul>
+          <li>Repaired npm release flow: publish root wrappers from <code>packaging/npm/</code></li>
+          <li>Wrapper <code>index.js</code> now resolves the <code>.exe</code> binary on Windows</li>
+          <li>Made platform and root publish steps idempotent, skipping already-published versions</li>
+          <li>Pass git tag as the npm package version instead of relying on <code>git describe</code></li>
+        </ul>
+        <h4>Improved</h4>
+        <ul>
+          <li>Removed broken trusted-publisher shell script (OIDC handles trust on npmjs.org)</li>
+        </ul>
+      </div>
+
+      <div class="changelog-version">
+        <h3>v1.3.3</h3>
         <div class="date">2026-03-21</div>
         <h4>Added</h4>
         <ul>
