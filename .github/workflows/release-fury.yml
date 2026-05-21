@@ -60,16 +60,41 @@ jobs:
       - name: Push artifacts to Fury
         if: env.skip != 'true'
         run: |
-          set -e
+          set -eo pipefail
           shopt -s nullglob
+          fail=0
           for f in pkgs/*.deb pkgs/*.rpm pkgs/*.apk; do
             echo "Pushing $f"
-            curl -fSL --max-time 120 \
+            body=$(mktemp)
+            code=$(curl -sS --max-time 120 -o "$body" -w '%{http_code}' \
               -u "${FURY_PUSH_TOKEN}:" \
               -F "package=@${f}" \
-              "https://push.fury.io/${FURY_ACCOUNT}/"
+              "https://push.fury.io/${FURY_ACCOUNT}/")
+            case "$code" in
+              200|201)
+                echo "  -> $code ok"
+                ;;
+              409)
+                # Same package+version+arch already in the repo. Benign on
+                # re-runs, and also fires when nfpm emits two arm variants
+                # that collapse to the same .deb Architecture (armv6/armv7 ->
+                # both armhf). Log and continue.
+                echo "  -> 409 (already exists, skipping):"
+                sed 's/^/    /' "$body"
+                ;;
+              *)
+                echo "  -> $code FAILED:"
+                sed 's/^/    /' "$body"
+                fail=1
+                ;;
+            esac
+            rm -f "$body"
             echo
           done
+          if [ "$fail" -ne 0 ]; then
+            echo "One or more uploads failed (non-409). See above."
+            exit 1
+          fi
           echo "Done. Add the repo on a user box with, e.g.:"
           echo "  curl -fsSL https://apt.fury.io/${FURY_ACCOUNT}/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/${FURY_ACCOUNT}-fury.gpg"
           echo "  echo \"deb [signed-by=/usr/share/keyrings/${FURY_ACCOUNT}-fury.gpg] https://apt.fury.io/${FURY_ACCOUNT}/ /\" | sudo tee /etc/apt/sources.list.d/${FURY_ACCOUNT}.list"
