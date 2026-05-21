@@ -58,7 +58,14 @@ jobs:
               echo "Skipping ${name}@${version} (already published)"
               continue
             fi
-            echo "Publishing ${name}@${version}..."
+            # npm requires --tag for any version containing a SemVer
+            # prerelease identifier (e.g. 1.4.0-rc2). Stable versions get the
+            # default `latest` dist-tag; prereleases land on `next`.
+            tag_args=()
+            if [[ "$version" == *-* ]]; then
+              tag_args=(--tag next)
+            fi
+            echo "Publishing ${name}@${version}${tag_args:+ (tag: ${tag_args[1]})}..."
             # ./ prefix so npm treats $dir as a path, not as a github shorthand.
-            npm publish "./$dir" --access public --provenance
+            npm publish "./$dir" --access public --provenance "${tag_args[@]}"
           done
