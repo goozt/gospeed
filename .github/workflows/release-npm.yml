@@ -1,0 +1,63 @@
+name: Release (npm)
+
+# Publishes the two wrapper packages in /npm to npmjs.org once the main
+# Release workflow has succeeded (so the GitHub Release archives the
+# postinstall script downloads actually exist).
+#
+# Uses OIDC trusted publishing — no NPM_TOKEN secret. The `npm` environment
+# must be configured as a trusted publisher on npmjs.com for both packages.
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    environment: npm
+    env:
+      TAG: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install npm 11 (side-install for OIDC trusted publishing)
+        # Trusted publishing requires npm >= 11.5.1; Node 22 ships with npm 10.
+        # Side-install into a separate prefix so npm doesn't replace its own
+        # running files (which causes the arborist MODULE_NOT_FOUND race).
+        run: |
+          mkdir -p "$HOME/.npm-tools"
+          npm install --prefix "$HOME/.npm-tools" npm@latest
+          echo "$HOME/.npm-tools/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Verify npm version
+        run: npm --version
+
+      - name: Stamp version and publish each wrapper
+        run: |
+          set -e
+          version="${TAG#v}"
+          for pkg in gospeed gospeed-server; do
+            dir="npm/${pkg}"
+            cp README.md "${dir}/README.md"
+            (cd "$dir" && npm version --no-git-tag-version --allow-same-version "$version")
+            name=$(node -p "require('./${dir}/package.json').name")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "Skipping ${name}@${version} (already published)"
+              continue
+            fi
+            echo "Publishing ${name}@${version}..."
+            npm publish "$dir" --access public --provenance
+          done

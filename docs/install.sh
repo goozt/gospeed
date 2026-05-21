@@ -1,12 +1,21 @@
 #!/bin/sh
 # gospeed installer — Linux, macOS, FreeBSD
 # Usage: curl -fsSL https://gospeed.goozt.org/install.sh | bash
-set -e
+#        curl -fsSL https://gospeed.goozt.org/install.sh | bash -s -- --server
+#
+# Installs both gospeed (client) and gospeed-server when --server is passed;
+# defaults to client-only.
+set -eu
 
 REPO="goozt/gospeed"
+PROJECT_NAME="gospeed"
 GOPATH="${GOPATH:-$(go env GOPATH 2>/dev/null || echo "$HOME/go")}"
 INSTALL_DIR="${GOPATH}/bin"
-BINARY="gospeed"
+
+BINARIES="gospeed"
+if [ "${INSTALL_SERVER:-}" = "1" ] || [ "${1:-}" = "--server" ]; then
+  BINARIES="gospeed gospeed-server"
+fi
 
 # Detect OS
 OS="$(uname -s)"
@@ -21,15 +30,19 @@ esac
 ARCH="$(uname -m)"
 case "$ARCH" in
   x86_64|amd64)  ARCH="amd64" ;;
-  aarch64|arm64)  ARCH="arm64" ;;
-  armv7*|armhf)   ARCH="arm" ;;
-  i386|i686)      ARCH="386" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  armv7*|armhf)  ARCH="arm" ;;
+  i386|i686)     ARCH="386" ;;
+  riscv64)       ARCH="riscv64" ;;
+  s390x)         ARCH="s390x" ;;
+  ppc64le)       ARCH="ppc64le" ;;
   *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-# Validate OS/arch combination
+# Validate OS/arch combination (matches .goreleaser.yaml ignores)
 case "${OS}_${ARCH}" in
-  darwin_386|darwin_arm|freebsd_arm|freebsd_386)
+  darwin_386|darwin_arm|darwin_riscv64|darwin_s390x|darwin_ppc64le|\
+  freebsd_arm|freebsd_386|freebsd_riscv64|freebsd_s390x|freebsd_ppc64le)
     echo "Unsupported combination: ${OS}/${ARCH}"
     exit 1 ;;
 esac
@@ -43,22 +56,36 @@ if [ -z "$VERSION" ]; then
 fi
 echo "Latest version: v${VERSION}"
 
-# Download
-ARCHIVE="gospeed_${VERSION}_${OS}_${ARCH}.tar.gz"
+# Download (single archive contains all binaries)
+ARCHIVE="${PROJECT_NAME}_${VERSION}_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}"
+CHECKSUM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/checksums.txt"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "Downloading ${ARCHIVE}..."
 curl -fsSL "$URL" -o "${TMP}/${ARCHIVE}"
+curl -fsSL "$CHECKSUM_URL" -o "${TMP}/checksums.txt"
+
+# Verify checksum
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$TMP" && grep " $ARCHIVE\$" checksums.txt | sha256sum -c -)
+elif command -v shasum >/dev/null 2>&1; then
+  (cd "$TMP" && grep " $ARCHIVE\$" checksums.txt | shasum -a 256 -c -)
+else
+  echo "warning: no sha256sum/shasum found, skipping checksum verification" >&2
+fi
 
 # Extract
 tar -xzf "${TMP}/${ARCHIVE}" -C "$TMP"
 
 # Install
 mkdir -p "$INSTALL_DIR"
-mv "${TMP}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
-chmod +x "${INSTALL_DIR}/${BINARY}"
+for bin in $BINARIES; do
+  mv "${TMP}/${bin}" "${INSTALL_DIR}/${bin}"
+  chmod +x "${INSTALL_DIR}/${bin}"
+  echo "Installed ${bin} v${VERSION} to ${INSTALL_DIR}/${bin}"
+done
 
 # Add to PATH if not already there
 case ":$PATH:" in
@@ -74,17 +101,3 @@ case ":$PATH:" in
     echo "Added ${INSTALL_DIR} to PATH in ${RC} (restart your terminal or run: source ${RC})"
     ;;
 esac
-
-echo "Installed gospeed v${VERSION} to ${INSTALL_DIR}/${BINARY}"
-
-# Also install server if requested
-if [ "${INSTALL_SERVER:-}" = "1" ] || [ "${1:-}" = "--server" ]; then
-  SERVER_ARCHIVE="gospeed-server_${VERSION}_${OS}_${ARCH}.tar.gz"
-  SERVER_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${SERVER_ARCHIVE}"
-  echo "Downloading ${SERVER_ARCHIVE}..."
-  curl -fsSL "$SERVER_URL" -o "${TMP}/${SERVER_ARCHIVE}"
-  tar -xzf "${TMP}/${SERVER_ARCHIVE}" -C "$TMP"
-  mv "${TMP}/gospeed-server" "${INSTALL_DIR}/gospeed-server"
-  chmod +x "${INSTALL_DIR}/gospeed-server"
-  echo "Installed gospeed-server v${VERSION} to ${INSTALL_DIR}/gospeed-server"
-fi

@@ -1,0 +1,145 @@
+name: Release (Fury.io)
+
+# Pushes the .deb / .rpm / .apk artifacts from the just-published GitHub
+# Release to a Fury.io account, and (optionally) builds + uploads a Python
+# wheel to that same account's Fury PyPI repo.
+#
+# Free alternative to GoReleaser Pro's cloudsmiths: publisher.
+#
+# Required GitHub config:
+#   secrets.FURY_PUSH_TOKEN  - a "Push token" from manage.fury.io.
+#   vars.FURY_ACCOUNT        - your Fury account name. The push URL becomes
+#                              https://push.fury.io/<account>/.
+#
+# If either is missing, the corresponding job is skipped, not failed.
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  fury-linux-packages:
+    name: Push deb / rpm / apk to Fury
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    env:
+      FURY_ACCOUNT: ${{ vars.FURY_ACCOUNT }}
+      FURY_PUSH_TOKEN: ${{ secrets.FURY_PUSH_TOKEN }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Guard on required config
+        run: |
+          if [ -z "$FURY_ACCOUNT" ] || [ -z "$FURY_PUSH_TOKEN" ]; then
+            echo "FURY_ACCOUNT (var) or FURY_PUSH_TOKEN (secret) not set — skipping."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+        if: env.skip != 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download .deb / .rpm / .apk from the release
+        if: env.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p pkgs
+          gh release download "$TAG" \
+            --pattern '*.deb' \
+            --pattern '*.rpm' \
+            --pattern '*.apk' \
+            --dir pkgs
+          ls -la pkgs
+
+      - name: Push artifacts to Fury
+        if: env.skip != 'true'
+        run: |
+          set -e
+          shopt -s nullglob
+          for f in pkgs/*.deb pkgs/*.rpm pkgs/*.apk; do
+            echo "Pushing $f"
+            curl -fSL --max-time 120 \
+              -u "${FURY_PUSH_TOKEN}:" \
+              -F "package=@${f}" \
+              "https://push.fury.io/${FURY_ACCOUNT}/"
+            echo
+          done
+          echo "Done. Add the repo on a user box with, e.g.:"
+          echo "  curl -fsSL https://apt.fury.io/${FURY_ACCOUNT}/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/${FURY_ACCOUNT}-fury.gpg"
+          echo "  echo \"deb [signed-by=/usr/share/keyrings/${FURY_ACCOUNT}-fury.gpg] https://apt.fury.io/${FURY_ACCOUNT}/ /\" | sudo tee /etc/apt/sources.list.d/${FURY_ACCOUNT}.list"
+
+  fury-pypi:
+    name: Build & push wheel to Fury PyPI
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    env:
+      FURY_ACCOUNT: ${{ vars.FURY_ACCOUNT }}
+      FURY_PUSH_TOKEN: ${{ secrets.FURY_PUSH_TOKEN }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Guard on required config
+        run: |
+          if [ -z "$FURY_ACCOUNT" ] || [ -z "$FURY_PUSH_TOKEN" ]; then
+            echo "FURY_ACCOUNT (var) or FURY_PUSH_TOKEN (secret) not set — skipping."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+        if: env.skip != 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Confirm pypi/ is present
+        if: env.skip != 'true'
+        run: |
+          if [ ! -f pypi/pyproject.toml ]; then
+            echo "pypi/pyproject.toml absent — skipping."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: env.skip != 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Stamp version into pyproject.toml and __init__.py
+        if: env.skip != 'true'
+        working-directory: pypi
+        run: |
+          version="${TAG#v}"
+          python - <<PY
+          import re, pathlib
+          p = pathlib.Path('pyproject.toml')
+          s = p.read_text()
+          s = re.sub(r'^version\s*=.*', f'version = "${version}"', s, count=1, flags=re.M)
+          p.write_text(s)
+
+          q = pathlib.Path('src/gospeed/__init__.py')
+          t = q.read_text()
+          t = re.sub(r'__version__\s*=.*', f'__version__ = "${version}"', t, count=1)
+          q.write_text(t)
+          PY
+
+      - name: Build wheel + sdist
+        if: env.skip != 'true'
+        working-directory: pypi
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Upload to Fury PyPI
+        if: env.skip != 'true'
+        working-directory: pypi
+        run: |
+          python -m pip install --upgrade twine
+          python -m twine upload \
+            --repository-url "https://push.fury.io/${FURY_ACCOUNT}/" \
+            --username "${FURY_PUSH_TOKEN}" \
+            --password "" \
+            dist/*

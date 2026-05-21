@@ -45,7 +45,7 @@ irm https://gospeed.goozt.org/install.ps1 | iex
 
 ### Binary download
 
-Download pre-built binaries from the [releases page](https://github.com/goozt/gospeed/releases).
+Download pre-built binaries from the [releases page](https://github.com/goozt/gospeed/releases). Each platform archive bundles both `gospeed` and `gospeed-server`.
 
 ### Go install
 
@@ -58,6 +58,76 @@ go install github.com/goozt/gospeed/cmd/gospeed-server@latest
 
 ```sh
 npm install -g @goozt/gospeed
+npm install -g @goozt/gospeed-server
+```
+
+### Homebrew (macOS / Linux)
+
+```sh
+brew install goozt/org/gospeed   # installs both binaries
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add goozt https://github.com/goozt/scoop-bucket
+scoop install goozt/gospeed
+```
+
+### Winget (Windows)
+
+```powershell
+winget install goozt.gospeed
+winget install goozt.gospeed-server
+```
+
+### AUR (Arch Linux)
+
+```sh
+yay -S gospeed-bin           # client
+yay -S gospeed-server-bin    # server (with systemd unit)
+```
+
+### Nix (NUR)
+
+```sh
+nix run github:goozt/nur-packages#gospeed
+```
+
+### apt / yum / apk (Fury.io)
+
+Repos are GPG-signed; the apt/yum snippets below import the public key and
+verify every install.
+
+```sh
+# Debian / Ubuntu
+curl -fsSL https://apt.fury.io/nikhiljohn10/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/nikhiljohn10-fury.gpg
+echo "deb [signed-by=/usr/share/keyrings/nikhiljohn10-fury.gpg] https://apt.fury.io/nikhiljohn10/ /" | sudo tee /etc/apt/sources.list.d/nikhiljohn10.list
+sudo apt update && sudo apt install gospeed gospeed-server
+
+# RHEL / Fedora
+sudo rpm --import https://yum.fury.io/nikhiljohn10/gpg.key
+sudo tee /etc/yum.repos.d/nikhiljohn10.repo <<'EOF'
+[nikhiljohn10]
+name=nikhiljohn10
+baseurl=https://yum.fury.io/nikhiljohn10/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://yum.fury.io/nikhiljohn10/gpg.key
+EOF
+sudo dnf install gospeed gospeed-server
+
+# Alpine (signing for Gemfury Alpine repos isn't published yet — use --allow-untrusted)
+echo "https://alpine.fury.io/nikhiljohn10/" | sudo tee -a /etc/apk/repositories
+sudo apk update && sudo apk add gospeed gospeed-server --allow-untrusted
+```
+
+### PyPI (pipx / pip)
+
+```sh
+pipx install --index-url https://pypi.fury.io/nikhiljohn10/ gospeed
+# exposes `gospeed` and `gospeed-server` commands
 ```
 
 ### mise

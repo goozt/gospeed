@@ -34,81 +34,11 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean ${{ steps.check_api.outputs.exists == 'true' && '--skip-publish --skip-announce' || '' }}
+          args: release --clean ${{ steps.check_api.outputs.exists == 'true' && '--skip=publish --skip=announce' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_GITHUB_TOKEN: ${{ secrets.PACKAGE_PUBLISHING_TOKEN }}
           SCOOPS_GITHUB_TOKEN: ${{ secrets.PACKAGE_PUBLISHING_TOKEN }}
-      
-      - name: Upload dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dist
-          path: dist
-          retention-days: 1
-
-  npm-publish:
-    needs: release
-    runs-on: ubuntu-latest
-    environment: npm
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download dist from GoReleaser
-        uses: actions/download-artifact@v4
-        with:
-          name: release-dist
-          path: dist
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install npm 11 (side-install for OIDC trusted publishing)
-        # Trusted publishing requires npm >= 11.5.1; Node 22 ships with npm 10.
-        # Side-install into a separate prefix so npm doesn't replace its own
-        # running files (which causes the arborist MODULE_NOT_FOUND race).
-        run: |
-          mkdir -p "$HOME/.npm-tools"
-          npm install --prefix "$HOME/.npm-tools" npm@latest
-          echo "$HOME/.npm-tools/node_modules/.bin" >> "$GITHUB_PATH"
-      - name: Verify npm version
-        run: npm --version
-
-      - name: Generate npm packages
-        run: bash scripts/npm-packages.sh -y "${GITHUB_REF_NAME#v}"
-
-      - name: Publish platform packages
-        run: |
-          shopt -s nullglob
-          for dir in dist/npm/*/; do
-            [ -f "${dir}package.json" ] || continue
-            name=$(node -p "require('./${dir}package.json').name")
-            version=$(node -p "require('./${dir}package.json').version")
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
-              echo "Skipping ${name}@${version} (already published)"
-              continue
-            fi
-            npm pkg set repository.type="git" repository.url="git+https://github.com/goozt/gospeed.git" --prefix "$dir"
-            echo "Publishing ${name}@${version}..."
-            npm publish "$dir" --provenance --access public
-          done
-
-      - name: Publish root packages
-        run: |
-          for pkg in gospeed gospeed-server; do
-            dir="packaging/npm/${pkg}"
-            cp README.md "${dir}/README.md"
-            name=$(node -p "require('./${dir}/package.json').name")
-            version=$(node -p "require('./${dir}/package.json').version")
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
-              echo "Skipping ${name}@${version} (already published)"
-              continue
-            fi
-            npm publish "$dir" --provenance --access public
-          done
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          NIX_TAP_GITHUB_TOKEN: ${{ secrets.NIX_TAP_GITHUB_TOKEN }}
+          WINGET_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}

@@ -1,0 +1,27 @@
+{
+  "name": "@goozt/gospeed",
+  "version": "0.0.0",
+  "description": "Fast, zero-dependency network speed testing tool",
+  "homepage": "https://gospeed.goozt.org",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goozt/gospeed.git"
+  },
+  "bugs": {
+    "url": "https://github.com/goozt/gospeed/issues"
+  },
+  "bin": {
+    "gospeed": "bin/gospeed.js"
+  },
+  "files": [
+    "bin/",
+    "install.js"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

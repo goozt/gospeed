@@ -81,3 +81,13 @@ tasks:
     desc: Test GoReleaser locally
     cmds:
       - goreleaser release --snapshot --clean
+
+  snapshot:
+    desc: Full GoReleaser dry-run (writes to ./dist, no publish)
+    cmds:
+      - goreleaser release --snapshot --clean --skip=publish
+
+  release:check:
+    desc: Validate .goreleaser.yaml
+    cmds:
+      - goreleaser check

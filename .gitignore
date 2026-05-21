@@ -35,3 +35,7 @@ go.work.sum
 bin/
 dist/
 node_modules/
+
+# Local AUR working clones (each has its own .git pointing at aur.archlinux.org)
+/gospeed-bin/
+/gospeed-server-bin/

@@ -1,4 +1,12 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+#
+# Single source of truth for releasing gospeed to GitHub Releases and every
+# supported package manager. Each publisher is guarded by an env var: if the
+# secret is missing, the publisher silently skips instead of failing the
+# release.
 version: 2
+
+project_name: gospeed
 
 builds:
   - id: gospeed
@@ -6,6 +14,13 @@ builds:
     binary: gospeed
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
+      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
     goos:
       - linux
       - darwin
@@ -16,28 +31,41 @@ builds:
       - arm64
       - arm
       - "386"
+      - riscv64
+      - s390x
+      - ppc64le
+    goarm:
+      - "6"
+      - "7"
     ignore:
-      - goos: darwin
-        goarch: "386"
-      - goos: darwin
-        goarch: arm
-      - goos: freebsd
-        goarch: arm
-      - goos: freebsd
-        goarch: "386"
-      - goos: windows
-        goarch: arm
-    ldflags:
-      - -s -w
-      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
-      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
+      - { goos: darwin, goarch: "386" }
+      - { goos: darwin, goarch: arm }
+      - { goos: darwin, goarch: riscv64 }
+      - { goos: darwin, goarch: s390x }
+      - { goos: darwin, goarch: ppc64le }
+      - { goos: windows, goarch: arm }
+      - { goos: windows, goarch: riscv64 }
+      - { goos: windows, goarch: s390x }
+      - { goos: windows, goarch: ppc64le }
+      - { goos: freebsd, goarch: arm }
+      - { goos: freebsd, goarch: "386" }
+      - { goos: freebsd, goarch: riscv64 }
+      - { goos: freebsd, goarch: s390x }
+      - { goos: freebsd, goarch: ppc64le }
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
   - id: gospeed-server
     main: ./cmd/gospeed-server
     binary: gospeed-server
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
+      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
     goos:
       - linux
       - darwin
@@ -48,28 +76,40 @@ builds:
       - arm64
       - arm
       - "386"
+      - riscv64
+      - s390x
+      - ppc64le
+    goarm:
+      - "6"
+      - "7"
     ignore:
-      - goos: darwin
-        goarch: "386"
-      - goos: darwin
-        goarch: arm
-      - goos: freebsd
-        goarch: arm
-      - goos: freebsd
-        goarch: "386"
-      - goos: windows
-        goarch: arm
-    ldflags:
-      - -s -w
-      - -X github.com/goozt/gospeed/internal/version.Version={{.Version}}
-      - -X github.com/goozt/gospeed/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/goozt/gospeed/internal/version.Date={{.Date}}
+      - { goos: darwin, goarch: "386" }
+      - { goos: darwin, goarch: arm }
+      - { goos: darwin, goarch: riscv64 }
+      - { goos: darwin, goarch: s390x }
+      - { goos: darwin, goarch: ppc64le }
+      - { goos: windows, goarch: arm }
+      - { goos: windows, goarch: riscv64 }
+      - { goos: windows, goarch: s390x }
+      - { goos: windows, goarch: ppc64le }
+      - { goos: freebsd, goarch: arm }
+      - { goos: freebsd, goarch: "386" }
+      - { goos: freebsd, goarch: riscv64 }
+      - { goos: freebsd, goarch: s390x }
+      - { goos: freebsd, goarch: ppc64le }
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: gospeed
+  - id: default
     ids:
       - gospeed
-    name_template: "gospeed_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+      - gospeed-server
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
     formats:
       - tar.gz
     format_overrides:
@@ -77,67 +117,18 @@ archives:
         formats:
           - zip
 
-  - id: gospeed-server
-    ids:
-      - gospeed-server
-    name_template: "gospeed-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    formats:
-      - tar.gz
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
+checksum:
+  name_template: "checksums.txt"
 
-brews:
-  - ids:
-      - gospeed
-    name: gospeed
-    repository:
-      owner: goozt
-      name: homebrew-org
-      token: "{{ .Env.HOMEBREW_GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://gospeed.goozt.org
-    description: Fast, zero-dependency network speed testing tool
-    license: MIT
-    install: |
-      bin.install "gospeed"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
 
-  - ids:
-      - gospeed-server
-    name: gospeed-server
-    repository:
-      owner: goozt
-      name: homebrew-org
-      token: "{{ .Env.HOMEBREW_GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://gospeed.goozt.org
-    description: Speed test server for gospeed
-    license: MIT
-    install: |
-      bin.install "gospeed-server"
-
-scoops:
-  - ids:
-      - gospeed
-    repository:
-      owner: goozt
-      name: scoop-bucket
-      token: "{{ .Env.SCOOPS_GITHUB_TOKEN }}"
-    homepage: https://gospeed.goozt.org
-    description: Fast, zero-dependency network speed testing tool
-    license: MIT
-
-  - ids:
-      - gospeed-server
-    repository:
-      owner: goozt
-      name: scoop-bucket
-      token: "{{ .Env.SCOOPS_GITHUB_TOKEN }}"
-    homepage: https://gospeed.goozt.org
-    description: Speed test server for gospeed
-    license: MIT
-
+# ---------- Linux system packages ----------
 nfpms:
   - id: gospeed-nfpm
     ids:
@@ -150,6 +141,7 @@ nfpms:
     formats:
       - deb
       - rpm
+      - apk
     bindir: /usr/bin
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ .ConventionalExtension }}"
 
@@ -164,6 +156,7 @@ nfpms:
     formats:
       - deb
       - rpm
+      - apk
     scripts:
       postinstall: scripts/apt/postinstall.sh
       preremove: scripts/apt/preremove.sh
@@ -177,16 +170,159 @@ nfpms:
     bindir: /usr/bin
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ .ConventionalExtension }}"
 
-checksum:
-  name_template: "checksums.txt"
+# ---------- Homebrew (macOS / Linux) ----------
+brews:
+  - name: gospeed
+    description: Fast, zero-dependency network speed testing tool
+    homepage: https://gospeed.goozt.org
+    license: MIT
+    repository:
+      owner: goozt
+      name: homebrew-org
+      token: "{{ .Env.HOMEBREW_GITHUB_TOKEN }}"
+    directory: Formula
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    install: |
+      bin.install "gospeed"
+      bin.install "gospeed-server"
+    test: |
+      system "#{bin}/gospeed", "--version"
+    skip_upload: '{{ if isEnvSet "HOMEBREW_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
 
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^ci:"
+# ---------- Scoop (Windows) ----------
+scoops:
+  - name: gospeed
+    description: Fast, zero-dependency network speed testing tool
+    homepage: https://gospeed.goozt.org
+    license: MIT
+    repository:
+      owner: goozt
+      name: scoop-bucket
+      token: "{{ .Env.SCOOPS_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "SCOOPS_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
+
+# ---------- Winget (Microsoft) ----------
+# One manifest per binary; winget identifies packages as Publisher.PackageName.
+# Requires a fork of microsoft/winget-pkgs at goozt/winget-pkgs and
+# WINGET_GITHUB_TOKEN (PAT with repo + workflow).
+winget:
+  - name: gospeed
+    publisher: goozt
+    short_description: Fast, zero-dependency network speed testing tool
+    description: Fast, zero-dependency network speed testing tool
+    license: MIT
+    homepage: https://gospeed.goozt.org
+    package_identifier: goozt.gospeed
+    publisher_url: https://gospeed.goozt.org
+    publisher_support_url: https://github.com/goozt/gospeed/issues
+    repository:
+      owner: goozt
+      name: winget-pkgs
+      branch: "gospeed-{{ .Version }}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "WINGET_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
+
+  - name: gospeed-server
+    publisher: goozt
+    short_description: Speed test server for gospeed
+    description: Speed test server for gospeed
+    license: MIT
+    homepage: https://gospeed.goozt.org
+    package_identifier: goozt.gospeed-server
+    publisher_url: https://gospeed.goozt.org
+    publisher_support_url: https://github.com/goozt/gospeed/issues
+    repository:
+      owner: goozt
+      name: winget-pkgs
+      branch: "gospeed-server-{{ .Version }}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "WINGET_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
+
+# ---------- AUR (Arch Linux) ----------
+# Two packages — gospeed-bin is CLI-only, gospeed-server-bin ships the
+# binary plus the systemd unit so users get the same UX as the .deb/.rpm.
+# Requires AUR_SSH_PRIVATE_KEY (PEM) and pre-submitted empty PKGBUILDs.
+aurs:
+  - name: gospeed-bin
+    homepage: https://gospeed.goozt.org
+    description: Fast, zero-dependency network speed testing tool
+    maintainers:
+      - "goozt <goozt@users.noreply.github.com>"
+    license: MIT
+    # Override the auto-derived provides/conflicts (which both default to the
+    # project_name `gospeed`) so the two AUR packages can coexist.
+    provides:
+      - gospeed
+    conflicts:
+      - gospeed
+    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/gospeed-bin.git"
+    package: |-
+      install -Dm755 "./gospeed" "${pkgdir}/usr/bin/gospeed"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/gospeed/LICENSE"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "AUR_SSH_PRIVATE_KEY" }}false{{ else }}true{{ end }}'
+
+  - name: gospeed-server-bin
+    homepage: https://gospeed.goozt.org
+    description: Speed test server for gospeed
+    maintainers:
+      - "goozt <goozt@users.noreply.github.com>"
+    license: MIT
+    provides:
+      - gospeed-server
+    conflicts:
+      - gospeed-server
+    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/gospeed-server-bin.git"
+    package: |-
+      install -Dm755 "./gospeed-server" "${pkgdir}/usr/bin/gospeed-server"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/gospeed-server/LICENSE"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "AUR_SSH_PRIVATE_KEY" }}false{{ else }}true{{ end }}'
+
+# ---------- Nix (NUR tap at goozt/nur-packages) ----------
+# license: mit is the Nix lib.licenses identifier, not SPDX.
+nix:
+  - name: gospeed
+    homepage: https://gospeed.goozt.org
+    description: Fast, zero-dependency network speed testing tool
+    license: mit
+    repository:
+      owner: goozt
+      name: nur-packages
+      token: "{{ .Env.NIX_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if isEnvSet "NIX_TAP_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
 
 signs:
   - id: gospeed-sig
