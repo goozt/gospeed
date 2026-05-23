@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.3.8] - 2026-05-23
+
+### Fixed
+- Fixed the PowerShell installer architecture detection on Windows
+
 ## [v1.3.6] - 2026-05-21
 
 ### Fixed
