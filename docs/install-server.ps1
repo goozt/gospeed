@@ -7,11 +7,15 @@ $GoPath = if ($env:GOPATH) { $env:GOPATH } elseif (Get-Command go -ErrorAction S
 $InstallDir = Join-Path $GoPath "bin"
 
 # Detect architecture
-$Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+$architecture = [System.Runtime.InteropServices.RuntimeInformation,mscorlib]::OSArchitecture.ToString()
+if (-not $architecture) {
+    $architecture = $env:PROCESSOR_ARCHITECTURE
+}
+$Arch = switch ($architecture) {
     "X64"   { "amd64" }
-    "Arm64" { "arm64" }
     "X86"   { "386" }
-    default { Write-Error "Unsupported architecture: $_"; exit 1 }
+    "Arm64" { "arm64" }
+    default { Write-Error "Unsupported architecture: $architecture"; exit 1 }
 }
 
 # Get latest version
